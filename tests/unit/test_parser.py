@@ -1,4 +1,4 @@
-"""PDF/DOCX text extraction against real, minimal files (R-10).
+"""PDF/DOCX/TXT text extraction against real, minimal files (R-10).
 
 The RTL tests build synthetic PDFs at the byte level (`tests/pdf_fixtures.py`) so the
 fixture reproduces the real mechanism of correct RTL extraction — visual-order glyph
@@ -43,7 +43,7 @@ def _squeeze(text: str) -> str:
 class TestDispatch:
     def test_unknown_file_type_is_a_programming_error(self) -> None:
         with pytest.raises(ValueError, match="Unsupported file_type"):
-            extract_text(file_type="txt", content=b"data")
+            extract_text(file_type="rtf", content=b"data")
 
 
 class TestPdfExtraction:
@@ -166,3 +166,36 @@ class TestDocxExtraction:
     def test_empty_bytes_raise_parsing_error(self) -> None:
         with pytest.raises(ParsingError):
             extract_text(file_type="docx", content=b"")
+
+
+class TestTxtExtraction:
+    def test_extracts_english_text(self) -> None:
+        content = b"The quarterly report is final."
+        assert extract_text(file_type="txt", content=content) == (
+            "The quarterly report is final."
+        )
+
+    def test_extracts_persian_text(self) -> None:
+        content = PERSIAN_SENTENCE.encode("utf-8")
+        assert extract_text(file_type="txt", content=content) == PERSIAN_SENTENCE
+
+    def test_extracts_mixed_persian_and_english_text(self) -> None:
+        content = MIXED_SENTENCE.encode("utf-8")
+        assert extract_text(file_type="txt", content=content) == MIXED_SENTENCE
+
+    def test_strips_a_utf8_bom(self) -> None:
+        content = "First line.".encode("utf-8-sig")
+        assert extract_text(file_type="txt", content=content) == "First line."
+
+    def test_strips_leading_and_trailing_whitespace(self) -> None:
+        content = b"\n\n  Only real content.  \n\n"
+        assert extract_text(file_type="txt", content=content) == "Only real content."
+
+    def test_empty_file_yields_empty_string(self) -> None:
+        assert extract_text(file_type="txt", content=b"") == ""
+
+    def test_non_utf8_bytes_raise_parsing_error(self) -> None:
+        # Valid Latin-1 but not valid UTF-8 (0xE9 alone is a continuation byte with no
+        # leading byte).
+        with pytest.raises(ParsingError):
+            extract_text(file_type="txt", content=b"caf\xe9")

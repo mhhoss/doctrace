@@ -20,6 +20,7 @@ _DOCUMENT_ID_LENGTH = 32
 _EXTENSION_TO_FILE_TYPE = {
     ".pdf": "pdf",
     ".docx": "docx",
+    ".txt": "txt",
 }
 
 

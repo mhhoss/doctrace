@@ -757,7 +757,7 @@ def _enable_folder_picking() -> None:
     """Let the file dialog select a whole folder, not just files.
 
     Presentation-only: it sets the directory attributes the browser already understands
-    on Streamlit's own file input. Non-PDF/DOCX files a folder happens to contain are
+    on Streamlit's own file input. Unsupported files a folder happens to contain are
     still filtered out by the uploader's own type check, and dropping a folder onto the
     dropzone already worked. Silently a no-op if the input isn't found.
     """
@@ -892,14 +892,14 @@ def _add_sources_dialog(client: ApiClient) -> None:
         return
 
     st.markdown(
-        '<div class="pka-blank-text">PDF or DOCX, as many at once as you like — pick '
-        "several files, or drag a folder onto the box. Each file is indexed on its own, "
-        "so one bad file never blocks the rest.</div>",
+        '<div class="pka-blank-text">PDF, DOCX, or TXT, as many at once as you like — '
+        "pick several files, or drag a folder onto the box. Each file is indexed on its "
+        "own, so one bad file never blocks the rest.</div>",
         unsafe_allow_html=True,
     )
     picked = st.file_uploader(
         "Choose files",
-        type=["pdf", "docx"],
+        type=["pdf", "docx", "txt"],
         accept_multiple_files=True,
         label_visibility="collapsed",
     )
@@ -1067,7 +1067,7 @@ def _render_sources(
         st.markdown(
             '<div class="pka-blank"><div class="pka-blank-mark">▤</div>'
             '<div class="pka-blank-title">Your sources will appear here</div>'
-            '<div class="pka-blank-text">Add a PDF or DOCX, then ask questions '
+            '<div class="pka-blank-text">Add a PDF, DOCX, or TXT, then ask questions '
             "answered only from it.</div></div>",
             unsafe_allow_html=True,
         )

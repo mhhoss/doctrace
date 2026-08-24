@@ -1,6 +1,6 @@
 # Private Knowledge Assistant
 
-A local-first RAG application: upload private PDF/DOCX documents, index them into a
+A local-first RAG application: upload private PDF/DOCX/TXT documents, index them into a
 persistent local vector store, and ask questions answered **only** from those documents,
 with citations.
 
@@ -14,7 +14,7 @@ are both supported.
 ## Status
 
 **Feature-complete for v1.** Unit/integration tested end to end, including real
-PDF/DOCX fixtures and English/Persian/mixed-language content throughout: `app/config.py`,
+PDF/DOCX/TXT fixtures and English/Persian/mixed-language content throughout: `app/config.py`,
 `app/storage/vector_store.py`, `app/documents/loader.py`, `app/documents/parser.py`,
 `app/documents/processor.py`, `app/rag/indexer.py`, `app/rag/jobs.py`,
 `app/rag/retriever.py`, `app/rag/generator.py`, `app/rag/engine.py`, `app/schemas/api.py`,

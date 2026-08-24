@@ -61,12 +61,32 @@ class TestIngestFile:
         (doc,) = store.list_documents()
         assert doc.filename == "گزارش.docx"
 
+    def test_indexes_a_mixed_language_txt(
+        self, store: VectorStore, embed_model: StubEmbedding
+    ) -> None:
+        outcome = do_ingest(
+            store, embed_model, "یادداشت.txt", MIXED_TEXT.encode("utf-8")
+        )
+        assert outcome.status is IngestStatus.INDEXED
+        assert outcome.chunk_count > 0
+        (doc,) = store.list_documents()
+        assert doc.filename == "یادداشت.txt"
+
+    def test_empty_txt_becomes_a_failed_outcome_not_an_exception(
+        self, store: VectorStore, embed_model: StubEmbedding
+    ) -> None:
+        """An empty TXT has no extractable text — same as an empty/image-only PDF or
+        DOCX, it fails rather than silently indexing zero chunks."""
+        outcome = do_ingest(store, embed_model, "empty.txt", b"")
+        assert outcome.status is IngestStatus.FAILED
+        assert outcome.error
+
     def test_unsupported_extension_becomes_a_failed_outcome_not_an_exception(
         self, store: VectorStore, embed_model: StubEmbedding
     ) -> None:
-        outcome = do_ingest(store, embed_model, "notes.txt", b"irrelevant")
+        outcome = do_ingest(store, embed_model, "notes.rtf", b"irrelevant")
         assert outcome.status is IngestStatus.FAILED
-        assert outcome.filename == "notes.txt"
+        assert outcome.filename == "notes.rtf"
         assert outcome.error
 
 
@@ -181,7 +201,7 @@ class TestIngestFiles:
             embed_model=embed_model,
             files=[
                 ("report.pdf", build_pdf([ENGLISH_TEXT])),
-                ("notes.txt", b"unsupported"),
+                ("notes.rtf", b"unsupported"),
                 ("گزارش.pdf", build_pdf([PERSIAN_TEXT])),
             ],
             chunk_size=CHUNK_SIZE,
@@ -190,7 +210,7 @@ class TestIngestFiles:
 
         by_name = {outcome.filename: outcome for outcome in outcomes}
         assert by_name["report.pdf"].status is IngestStatus.INDEXED
-        assert by_name["notes.txt"].status is IngestStatus.FAILED
+        assert by_name["notes.rtf"].status is IngestStatus.FAILED
         assert by_name["گزارش.pdf"].status is IngestStatus.INDEXED
         assert {doc.filename for doc in store.list_documents()} == {
             "report.pdf",

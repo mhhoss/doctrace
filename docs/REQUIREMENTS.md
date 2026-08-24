@@ -18,7 +18,7 @@ Single-user, local, v1.
 
 | ID | Requirement |
 | --- | --- |
-| R-01 | Upload one or more PDF/DOCX files |
+| R-01 | Upload one or more PDF/DOCX/TXT files |
 | R-02 | Parse, normalize, chunk, embed, and persist uploaded documents automatically |
 | R-03 | Persist the index across restarts (local Chroma) |
 | R-04 | Answer natural-language questions using only retrieved document context |
@@ -90,7 +90,7 @@ Non-negotiable; these define correctness for R-04/R-05.
 
 | ID | Story | Requirements |
 | --- | --- | --- |
-| US-01 | Upload one or more PDF/DOCX files as my private knowledge base | R-01 |
+| US-01 | Upload one or more PDF/DOCX/TXT files as my private knowledge base | R-01 |
 | US-02 | Have uploads processed and indexed automatically, and be told exactly which files failed and why | R-02, R-03, R-09 |
 | US-03 | Ask questions and get answers based only on my documents | R-04 |
 | US-04 | See which document and which part each answer came from | R-05 |
@@ -105,7 +105,7 @@ Authentication/authorization · multi-user or multi-tenant support · cloud vect
 databases · fine-tuning · multi-agent workflows · distributed infrastructure ·
 billing · OCR for scanned or image-only PDFs (a common Persian document format —
 such files are reported as `failed`, not silently indexed empty) · languages other
-than English and Persian · non-PDF/DOCX formats · answer streaming ·
+than English and Persian · non-PDF/DOCX/TXT formats · answer streaming ·
 per-embedding-model collection namespacing.
 
 Out of scope means *not built and not designed for*. Adding any of these requires a
@@ -113,7 +113,7 @@ concrete requirement first.
 
 ## Definition of done
 
-1. PDF/DOCX upload and indexing works end to end.
+1. PDF/DOCX/TXT upload and indexing works end to end.
 2. The index survives a restart.
 3. Queries return grounded answers with sources.
 4. Insufficient context produces an explicit refusal, not a guess.

@@ -25,6 +25,9 @@ class TestDetectFileType:
             ("notes.docx", "docx"),
             ("Notes.DOCX", "docx"),
             ("archive.tar.docx", "docx"),  # only the final suffix matters
+            ("notes.txt", "txt"),
+            ("NOTES.TXT", "txt"),
+            ("یادداشت.txt", "txt"),
         ],
     )
     def test_recognizes_supported_extensions_case_insensitively(
@@ -32,9 +35,7 @@ class TestDetectFileType:
     ) -> None:
         assert detect_file_type(filename) == expected
 
-    @pytest.mark.parametrize(
-        "filename", ["report.txt", "report.doc", "report.pptx", "noextension"]
-    )
+    @pytest.mark.parametrize("filename", ["report.doc", "report.pptx", "noextension"])
     def test_rejects_unsupported_extensions(self, filename: str) -> None:
         with pytest.raises(UnsupportedFileTypeError):
             detect_file_type(filename)
@@ -74,10 +75,18 @@ class TestLoad:
         assert result.filename == "سند.docx"
         assert result.raw_text == "این یک سند فارسی است."
 
+    def test_loads_a_persian_txt(self) -> None:
+        content = "این یک سند فارسی است.".encode()
+        result = load(filename="سند.txt", content=content)
+        assert result.file_type == "txt"
+        assert result.filename == "سند.txt"
+        assert result.raw_text == "این یک سند فارسی است."
+        assert result.document_id == compute_document_id(content)
+
     def test_unsupported_extension_is_rejected_before_parsing(self) -> None:
         """Bad extension fails even though the bytes are not valid PDF/DOCX either."""
         with pytest.raises(UnsupportedFileTypeError):
-            load(filename="notes.txt", content=b"plain text, not a real document")
+            load(filename="notes.rtf", content=b"plain text, not a real document")
 
     def test_matching_extension_with_corrupt_content_raises_parsing_error(self) -> None:
         with pytest.raises(ParsingError):
@@ -86,4 +95,9 @@ class TestLoad:
     def test_document_with_no_extractable_text_loads_with_empty_raw_text(self) -> None:
         """An image-only/blank document is not a loader failure; it has no text."""
         result = load(filename="blank.docx", content=build_docx([]))
+        assert result.raw_text == ""
+
+    def test_empty_txt_loads_with_empty_raw_text(self) -> None:
+        result = load(filename="blank.txt", content=b"")
+        assert result.file_type == "txt"
         assert result.raw_text == ""

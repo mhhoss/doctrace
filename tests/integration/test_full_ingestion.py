@@ -77,6 +77,31 @@ class TestEndToEndIngestion:
         assert "Kubernetes" in chunks[0].text
         assert "PostgreSQL" in chunks[0].text
 
+    def test_mixed_language_txt(
+        self, store: VectorStore, embed_model: StubEmbedding
+    ) -> None:
+        content = MIXED_REPORT.encode("utf-8")
+        _document, chunks = load_and_process(filename="mixed.txt", content=content)
+
+        outcome = index_document(store=store, embed_model=embed_model, chunks=chunks)
+
+        assert outcome.status is IngestStatus.INDEXED
+        assert "Kubernetes" in chunks[0].text
+        assert "PostgreSQL" in chunks[0].text
+
+    def test_persian_txt(self, store: VectorStore, embed_model: StubEmbedding) -> None:
+        content = PERSIAN_REPORT.encode("utf-8")
+        document, chunks = load_and_process(filename="گزارش.txt", content=content)
+        assert chunks, "Persian text must survive extraction + normalization"
+
+        outcome = index_document(store=store, embed_model=embed_model, chunks=chunks)
+
+        assert outcome.status is IngestStatus.INDEXED
+        (indexed,) = store.list_documents()
+        assert indexed.document_id == document.document_id
+        assert indexed.filename == "گزارش.txt"
+        assert indexed.file_type == "txt"
+
     def test_docx_table_content_is_indexed(
         self, store: VectorStore, embed_model: StubEmbedding
     ) -> None:
@@ -140,11 +165,16 @@ class TestNoExtractableText:
         )
         assert chunks == []
 
+    def test_empty_txt_yields_no_chunks(self) -> None:
+        document, chunks = load_and_process(filename="empty.txt", content=b"")
+        assert document.raw_text == ""
+        assert chunks == []
+
 
 class TestUnsupportedUpload:
     def test_unsupported_extension_never_reaches_the_store(
         self, store: VectorStore
     ) -> None:
         with pytest.raises(UnsupportedFileTypeError):
-            load(filename="notes.txt", content=b"irrelevant content")
+            load(filename="notes.rtf", content=b"irrelevant content")
         assert store.count() == 0

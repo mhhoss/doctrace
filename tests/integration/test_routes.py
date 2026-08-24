@@ -121,6 +121,16 @@ class TestIngestDocuments:
         assert result["error"] is None
         assert result["document_id"]
 
+    def test_single_txt_file_ingestion(self, client: TestClient) -> None:
+        job = upload_and_finish(client, [("گزارش.txt", PERSIAN_TEXT.encode())])
+
+        assert job["status"] == "completed"
+        result = job["files"][0]
+        assert result["filename"] == "گزارش.txt"
+        assert result["status"] == "indexed"
+        assert result["chunk_count"] > 0
+        assert result["error"] is None
+
     def test_multi_file_ingestion_with_partial_failure(
         self, client: TestClient
     ) -> None:
@@ -128,22 +138,22 @@ class TestIngestDocuments:
             client,
             [
                 ("a.pdf", build_pdf(["Alpha document."])),
-                ("notes.txt", b"unsupported extension"),
+                ("notes.rtf", b"unsupported extension"),
                 ("گزارش.pdf", build_pdf([PERSIAN_TEXT])),
             ],
         )
 
         by_name = {r["filename"]: r for r in job["files"]}
         assert by_name["a.pdf"]["status"] == "indexed"
-        assert by_name["notes.txt"]["status"] == "failed"
-        assert by_name["notes.txt"]["error"]
-        assert by_name["notes.txt"]["chunk_count"] == 0
+        assert by_name["notes.rtf"]["status"] == "failed"
+        assert by_name["notes.rtf"]["error"]
+        assert by_name["notes.rtf"]["chunk_count"] == 0
         assert by_name["گزارش.pdf"]["status"] == "indexed"
 
     def test_unsupported_extension_is_a_failed_result_not_an_http_error(
         self, client: TestClient
     ) -> None:
-        job = upload_and_finish(client, [("notes.txt", b"plain text")])
+        job = upload_and_finish(client, [("notes.rtf", b"plain text")])
 
         result = job["files"][0]
         assert result["status"] == "failed"
@@ -162,7 +172,7 @@ class TestIngestDocuments:
     ) -> None:
         job = upload_and_finish(
             client,
-            [("a.txt", b"x"), ("b.txt", b"y")],
+            [("a.rtf", b"x"), ("b.rtf", b"y")],
         )
 
         statuses = {r["status"] for r in job["files"]}
@@ -363,6 +373,24 @@ class TestQuery:
         assert record.getMessage() == "provider request failed"
         assert record.levelname == "WARNING"
         assert log_fields(record)["route"] == "/query"
+
+    def test_successful_grounded_query_against_a_txt_document(
+        self, client: TestClient, llm: StubLLM
+    ) -> None:
+        upload(client, [("notes.txt", ENGLISH_TEXT.encode())])
+        llm.response = "Kubernetes costs rose significantly."
+
+        response = client.post(
+            "/query", json={"query": "How did Kubernetes cluster costs change?"}
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_refusal"] is False
+        assert body["answer"] == "Kubernetes costs rose significantly."
+        source = body["sources"][0]
+        assert source["filename"] == "notes.txt"
+        assert source["excerpt"]
 
     def test_persian_query_against_persian_document(
         self, client: TestClient, llm: StubLLM

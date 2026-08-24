@@ -1,4 +1,4 @@
-"""PDF and DOCX text extraction.
+"""PDF, DOCX, and TXT text extraction.
 
 Extracts raw text only. Normalization and chunking happen in `processor.py`; this module
 does not know about languages, scripts, or the pipeline stages around it.
@@ -40,7 +40,7 @@ _PDFTOTEXT_NOT_FOUND_MESSAGE = (
 
 
 class ParsingError(RuntimeError):
-    """A file could not be read as valid PDF/DOCX, regardless of the reason."""
+    """A file could not be read as valid PDF/DOCX/TXT, regardless of the reason."""
 
 
 # Pages/paragraphs join with a blank line so `processor.chunk_text` treats each as a
@@ -54,6 +54,8 @@ def extract_text(*, file_type: str, content: bytes) -> str:
         return _extract_pdf(content)
     if file_type == "docx":
         return _extract_docx(content)
+    if file_type == "txt":
+        return _extract_txt(content)
     raise ValueError(f"Unsupported file_type: {file_type!r}")
 
 
@@ -102,6 +104,17 @@ def _extract_docx(content: bytes) -> str:
     except Exception as error:
         raise ParsingError(f"Could not read DOCX: {error}") from error
     return _BLOCK_SEP.join(block for block in (*paragraphs, *tables) if block)
+
+
+def _extract_txt(content: bytes) -> str:
+    # "utf-8-sig" transparently strips a leading BOM (common from Windows editors)
+    # while decoding plain UTF-8 identically otherwise. `strict` errors surface
+    # non-UTF-8 files as a ParsingError rather than silently mangling their text.
+    try:
+        text = content.decode("utf-8-sig", errors="strict")
+    except UnicodeDecodeError as error:
+        raise ParsingError(f"Could not read TXT: not valid UTF-8 ({error})") from error
+    return text.strip()
 
 
 def _render_table(table: Table) -> str:
