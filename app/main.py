@@ -28,6 +28,7 @@ from app.config import (
     get_settings,
     require_credentials,
 )
+from app.extraction.store import ExtractionStore
 from app.observability import configure_logging, log_event
 from app.rag.jobs import JobStore
 from app.storage.vector_store import VectorStore
@@ -67,6 +68,9 @@ def _lifespan_for(settings_factory: Callable[[], Settings]):
         # In-memory background-ingestion job registry (ADR-17). One per process,
         # never persisted or rebuilt at runtime — the same lifecycle as `store` above.
         app.state.job_store = JobStore()
+        # In-memory extraction results (ADR-25); same lifecycle, durability is a
+        # separate later change (see extraction/store.py's docstring).
+        app.state.extraction_store = ExtractionStore()
         llm_provider, embedding_provider = describe_providers(settings)
         log_event(
             logger,

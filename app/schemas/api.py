@@ -276,3 +276,43 @@ class HealthCheck(BaseModel):
 class HealthResponse(BaseModel):
     ok: bool
     checks: list[HealthCheck]
+
+
+class ExtractedItem(BaseModel):
+    """One obligation/requirement, page-cited (ADR-25). Mirrors `extraction.models.ExtractedItem`."""
+
+    item_id: str = Field(min_length=1)
+    document_id: str = Field(min_length=1)
+    category: str
+    text: str
+    quote: str
+    section_label: str | None = None
+    page_start: int | None = None
+    page_end: int | None = None
+    located: bool
+    confidence: float = Field(ge=0.0, le=1.0)
+    verification_status: str
+    verification_note: str | None = None
+
+
+class SectionOutcome(BaseModel):
+    """One section's extraction result — visible so a partial-failure document (some
+    sections failed, others succeeded) is legible, not just its surviving items."""
+
+    section_id: str = Field(min_length=1)
+    label: str | None = None
+    status: str
+    item_count: int = Field(ge=0)
+    error: str | None = None
+
+
+class ExtractionResponse(BaseModel):
+    """One document's full extraction result (R-09-style: never raises, reports a
+    failure as data)."""
+
+    document_id: str = Field(min_length=1)
+    filename: str = Field(min_length=1)
+    status: str
+    items: list[ExtractedItem] = Field(default_factory=list)
+    sections: list[SectionOutcome] = Field(default_factory=list)
+    error: str | None = None

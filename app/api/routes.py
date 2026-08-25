@@ -45,6 +45,15 @@ from app.config import (
     probe_embedding,
     probe_llm,
 )
+from app.documents.loader import (
+    UnsupportedFileTypeError,
+    compute_document_id,
+    detect_file_type,
+)
+from app.extraction import engine as extraction_engine
+from app.extraction.models import ExtractionOutcome as DomainExtractionOutcome
+from app.extraction.models import SectionOutcome as DomainSectionOutcome
+from app.extraction.store import ExtractionStore
 from app.observability import log_event
 from app.rag import engine
 from app.rag.generator import Citation as DomainCitation
@@ -103,6 +112,10 @@ def _get_vector_store(request: Request) -> VectorStore:
 
 def _get_job_store(request: Request) -> JobStore:
     return request.app.state.job_store
+
+
+def _get_extraction_store(request: Request) -> ExtractionStore:
+    return request.app.state.extraction_store
 
 
 def _get_embed_model(request: Request) -> BaseEmbedding:
@@ -173,6 +186,43 @@ def _to_schema_provider(provider: ProviderDescription) -> schemas.ProviderSummar
         base_url=provider.base_url,
         masked_key=provider.masked_key,
         is_local=provider.is_local,
+    )
+
+
+def _to_schema_extraction(outcome: DomainExtractionOutcome) -> schemas.ExtractionResponse:
+    return schemas.ExtractionResponse(
+        document_id=outcome.document_id,
+        filename=outcome.filename,
+        status=outcome.status.value,
+        items=[
+            schemas.ExtractedItem(
+                item_id=item.item_id,
+                document_id=item.document_id,
+                category=item.category,
+                text=item.text,
+                quote=item.quote,
+                section_label=item.section_label,
+                page_start=item.page_start,
+                page_end=item.page_end,
+                located=item.located,
+                confidence=item.confidence,
+                verification_status=item.verification_status.value,
+                verification_note=item.verification_note,
+            )
+            for item in outcome.items
+        ],
+        sections=[_to_schema_section(section) for section in outcome.sections],
+        error=outcome.error,
+    )
+
+
+def _to_schema_section(section: DomainSectionOutcome) -> schemas.SectionOutcome:
+    return schemas.SectionOutcome(
+        section_id=section.section_id,
+        label=section.label,
+        status=section.status.value,
+        item_count=section.item_count,
+        error=section.error,
     )
 
 
@@ -314,6 +364,70 @@ def reset_knowledge_base(
     """Clear the entire knowledge base (R-07)."""
     store.reset()
     return schemas.ResetResponse()
+
+
+@router.post(
+    "/extract",
+    response_model=schemas.ExtractionResponse,
+    dependencies=[Depends(require_api_key)],
+)
+async def extract_document(
+    file: UploadFile = File(...),
+    settings: Settings = Depends(_get_settings),
+    llm: LLM = Depends(_get_llm),
+    extraction_store: ExtractionStore = Depends(_get_extraction_store),
+) -> schemas.ExtractionResponse:
+    """Extract a page-cited requirement register from one document (ADR-25).
+
+    Synchronous: this runs inline (not a background job like `POST /documents`) and
+    can take a while for a long document — one LLM call per section, plus one more per
+    item for grounding verification. Durable job tracking for this is a later change
+    (ADR-25's design note); for now, correctness and per-section failure isolation
+    matter more than not blocking the request. A parse failure or "no extractable
+    text" is a normal `ExtractionResponse` with `status="failed"` (R-09's convention),
+    never an HTTP error — only an unsupported file extension is (400).
+    """
+    content = await file.read()
+    filename = file.filename or "unnamed"
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"{filename!r} exceeds the {settings.max_upload_mb}MB limit.",
+        )
+    try:
+        file_type = detect_file_type(filename)
+    except UnsupportedFileTypeError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    outcome = extraction_engine.extract_document(
+        document_id=compute_document_id(content),
+        filename=filename,
+        file_type=file_type,
+        content=content,
+        llm=llm,
+    )
+    extraction_store.save(outcome)
+    return _to_schema_extraction(outcome)
+
+
+@router.get("/extract/{document_id}", response_model=schemas.ExtractionResponse)
+def get_extraction(
+    document_id: str,
+    extraction_store: ExtractionStore = Depends(_get_extraction_store),
+) -> schemas.ExtractionResponse:
+    """Retrieve a previously computed extraction result (ADR-25).
+
+    404 if this document has never been extracted in this process — the store is
+    in-memory only, the same lifecycle as `JobStore` (see `extraction/store.py`).
+    """
+    outcome = extraction_store.get(document_id)
+    if outcome is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No extraction result found for document {document_id!r}.",
+        )
+    return _to_schema_extraction(outcome)
 
 
 @router.post(

@@ -659,6 +659,15 @@ verification is deliberately not implemented: a second LLM call producing a diff
 answer is not "fixing" the first, it's rolling dice, and there is no clear termination
 condition for such a loop.
 
+`POST /extract` (auth-gated, ADR-26) and `GET /extract/{document_id}` expose this at
+the API. Deliberately synchronous, not a background job like `POST /documents`: it can
+take a while for a long document (one LLM call per section, one more per item for
+verification), but durable job tracking for it is a later change, not a reason to
+delay the pipeline reaching the API — correctness and per-section isolation matter
+more right now than not blocking the request. Results are kept in a new
+`ExtractionStore`, in-memory, one per process — the exact lifecycle
+`rag/jobs.py`'s `JobStore` already has, not a new pattern.
+
 **ADR-26 — The runtime provider-swap endpoints (`POST /settings/llm`,
 `POST /settings/embedding`) are removed; an optional `API_KEY` gate and `GET /health`
 are added.** Removal, not a fix: those two endpoints accepted a `base_url` from any

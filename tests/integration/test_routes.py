@@ -21,6 +21,9 @@ from openai import APIConnectionError
 
 from app.api import routes
 from app.config import Settings
+from app.extraction import llm_calls
+from app.extraction.models import ExtractedItemLLM, SectionExtractionResult
+from app.extraction.store import ExtractionStore
 from app.rag.jobs import JobStore
 from app.storage.vector_store import VectorStore
 from tests.conftest import (
@@ -61,6 +64,10 @@ def app(store: VectorStore, embed_model: StubEmbedding, llm: StubLLM) -> FastAPI
     application.dependency_overrides[routes._get_llm] = lambda: llm
     job_store = JobStore()
     application.dependency_overrides[routes._get_job_store] = lambda: job_store
+    extraction_store = ExtractionStore()
+    application.dependency_overrides[routes._get_extraction_store] = (
+        lambda: extraction_store
+    )
     return application
 
 
@@ -581,6 +588,9 @@ class TestApiKeyAuth:
         application.dependency_overrides[routes._get_embed_model] = lambda: embed_model
         application.dependency_overrides[routes._get_llm] = lambda: llm
         application.dependency_overrides[routes._get_job_store] = lambda: JobStore()
+        application.dependency_overrides[routes._get_extraction_store] = (
+            lambda: ExtractionStore()
+        )
         return application
 
     def test_unset_api_key_leaves_mutating_routes_open(self, client: TestClient) -> None:
@@ -638,3 +648,102 @@ class TestHealthEndpoint:
         names = {c["name"] for c in body["checks"]}
         assert "poppler" in names
         assert "chroma_path_writable" in names
+
+
+class TestExtractDocument:
+    """`POST /extract` / `GET /extract/{document_id}` (ADR-25). `llm_calls` is
+    monkeypatched at its module boundary — the same convention `test_extraction_engine.py`
+    uses — so this exercises the real route -> engine -> schema translation path with
+    only the outermost LLM call stubbed."""
+
+    def test_successful_extraction_returns_page_cited_items(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            llm_calls,
+            "extract_section_items",
+            lambda llm, **kw: SectionExtractionResult(
+                items=[
+                    ExtractedItemLLM(
+                        category="deadline",
+                        text="Delivery within 30 days",
+                        quote="Kubernetes",
+                    )
+                ]
+            ),
+        )
+
+        response = client.post(
+            "/extract",
+            files={"file": ("report.pdf", build_pdf([ENGLISH_TEXT]), "application/pdf")},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "succeeded"
+        assert body["filename"] == "report.pdf"
+        assert len(body["items"]) == 1
+        item = body["items"][0]
+        assert item["category"] == "deadline"
+        assert item["located"] is True
+        assert item["page_start"] == 1
+        assert item["verification_status"] == "not_run"
+
+    def test_no_extractable_text_is_a_failed_response_not_an_error(
+        self, client: TestClient
+    ) -> None:
+        response = client.post(
+            "/extract", files={"file": ("empty.txt", b"   ", "text/plain")}
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "failed"
+        assert body["items"] == []
+
+    def test_unsupported_extension_is_a_400(self, client: TestClient) -> None:
+        response = client.post(
+            "/extract", files={"file": ("report.rtf", b"data", "application/rtf")}
+        )
+        assert response.status_code == 400
+
+    def test_a_result_can_be_retrieved_after_extraction(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            llm_calls,
+            "extract_section_items",
+            lambda llm, **kw: SectionExtractionResult(items=[]),
+        )
+        posted = client.post(
+            "/extract", files={"file": ("report.pdf", build_pdf([ENGLISH_TEXT]), "application/pdf")}
+        )
+        document_id = posted.json()["document_id"]
+
+        response = client.get(f"/extract/{document_id}")
+
+        assert response.status_code == 200
+        assert response.json()["document_id"] == document_id
+
+    def test_an_unknown_document_id_is_404(self, client: TestClient) -> None:
+        response = client.get("/extract/does-not-exist")
+        assert response.status_code == 404
+
+    def test_extract_requires_the_api_key_when_configured(
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+    ) -> None:
+        app = FastAPI()
+        app.include_router(routes.router)
+        app.dependency_overrides[routes._get_settings] = (
+            lambda: _settings(api_key="secret-key")
+        )
+        app.dependency_overrides[routes._get_vector_store] = lambda: store
+        app.dependency_overrides[routes._get_embed_model] = lambda: embed_model
+        app.dependency_overrides[routes._get_llm] = lambda: llm
+        app.dependency_overrides[routes._get_job_store] = lambda: JobStore()
+        app.dependency_overrides[routes._get_extraction_store] = lambda: ExtractionStore()
+
+        response = TestClient(app).post(
+            "/extract", files={"file": ("report.txt", b"some text", "text/plain")}
+        )
+
+        assert response.status_code == 401
