@@ -234,33 +234,6 @@ class SettingsResponse(BaseModel):
     embedding: ProviderSummary
 
 
-class UpdateLlmSettingsRequest(BaseModel):
-    """A replacement LLM provider configuration, applied only after a live probe
-    succeeds (never persisted to `.env` — process-local until the app restarts).
-
-    `api_key` left blank keeps whichever credential is currently active; a real
-    secret never needs to round-trip back through the browser to be preserved.
-    """
-
-    api_key: str = ""
-    base_url: str = Field(min_length=1)
-    model: str = Field(min_length=1)
-
-
-class UpdateEmbeddingSettingsRequest(BaseModel):
-    """A replacement embedding provider configuration.
-
-    Applied only after a live probe succeeds *and* the change is confirmed safe
-    against any already-indexed documents (ADR-8) — see `ConnectionCheck`/`ErrorResponse`
-    for how a probe failure or an index conflict is reported instead. Never persisted to
-    `.env`. `api_key` left blank keeps the currently active credential.
-    """
-
-    api_key: str = ""
-    base_url: str = Field(min_length=1)
-    model: str = Field(min_length=1)
-
-
 class ConnectionCheck(BaseModel):
     """Outcome of one real provider call. `detail` is set only when `ok` is false."""
 
@@ -288,3 +261,18 @@ class ErrorResponse(BaseModel):
     """
 
     detail: str = Field(min_length=1)
+
+
+class HealthCheck(BaseModel):
+    """One dependency's status (ADR-26): a missing binary, a missing pinned model
+    file, or an unwritable storage path each fail loudly here instead of surfacing
+    later as an opaque 500 on first real use."""
+
+    name: str = Field(min_length=1)
+    ok: bool
+    detail: str | None = None
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+    checks: list[HealthCheck]

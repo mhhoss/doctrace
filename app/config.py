@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # Standard Python logging level names (DEBUG/INFO/WARNING/ERROR/CRITICAL).
     log_level: str = "INFO"
 
+    # Unset (default) disables auth entirely — appropriate only for a single-user
+    # deployment kept off any network the operator doesn't fully trust (ADR-26). Set
+    # to require a matching `X-API-Key` header on every mutating request.
+    api_key: str | None = None
+    # Enforced in the ingestion route before a file is read into memory (ADR-26).
+    max_upload_mb: int = Field(default=50, ge=1)
+
     @model_validator(mode="after")
     def _resolve(self) -> Settings:
         if self.embedding_api_key is None:

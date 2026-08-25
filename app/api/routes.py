@@ -9,19 +9,20 @@ internal domain/storage types (`indexer.IngestOutcome`, `vector_store.DocumentSu
 Dependency providers (`_get_settings`/`_get_vector_store`/`_get_embed_model`/`_get_llm`/
 `_get_registry`) read `request.app.state` — the settings/embedding/LLM trio through the
 `ProviderRegistry` `app/main.py` builds at startup, the `VectorStore` directly — and
-never construct their own (ADR-10). `update_llm_settings`/`update_embedding_settings`
-are the one exception: they build and probe a *replacement* client (still only via
-`config.py`'s `build_llm`/`build_embedding_model`, invariant 5 intact) and, only on
-success, hand it to the registry themselves — the registry is the single owner of that
-mutation, not a general pattern for routes to construct clients. Tests that mount this
-router directly (no `app/main.py` lifespan) override these dependencies to inject stubs
-instead.
+never construct their own (ADR-10). Provider configuration is env/config-file-only,
+resolved once at startup; there is no runtime provider-swap endpoint (ADR-26 removed
+the two that used to exist here — a request-supplied `base_url` accepted from any
+unauthenticated caller). Tests that mount this router directly (no `app/main.py`
+lifespan) override these dependencies to inject stubs instead.
 """
 
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import (
@@ -40,10 +41,7 @@ from app.config import (
     ProviderDescription,
     ProviderRegistry,
     Settings,
-    build_embedding_model,
-    build_llm,
     describe_providers,
-    mask_secret,
     probe_embedding,
     probe_llm,
 )
@@ -56,7 +54,7 @@ from app.rag.jobs import IngestionJob as DomainIngestionJob
 from app.rag.jobs import JobStore, run_ingestion_job
 from app.schemas import api as schemas
 from app.storage.vector_store import DocumentSummary as DomainDocumentSummary
-from app.storage.vector_store import EmbeddingMismatchError, VectorStore
+from app.storage.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +70,8 @@ router = APIRouter()
 # startup and never rebuilds — opening it there is also where the ADR-8 embedding
 # fingerprint check runs, so a mismatch fails startup rather than this layer having to
 # translate it into a response. The other three read the `ProviderRegistry` that same
-# `lifespan` builds; unlike the store, its contents may be replaced at runtime by
-# `update_llm_settings`/`update_embedding_settings` below (ADR-10's amendment).
+# `lifespan` builds — a `ProviderRegistry` still exists as an internal type (built once
+# at startup, never mutated after ADR-26), kept because several routes read through it.
 
 
 def _get_registry(request: Request) -> ProviderRegistry:
@@ -82,6 +80,21 @@ def _get_registry(request: Request) -> ProviderRegistry:
 
 def _get_settings(request: Request) -> Settings:
     return request.app.state.registry.settings
+
+
+def require_api_key(
+    request: Request, settings: Settings = Depends(_get_settings)
+) -> None:
+    """Gate mutating routes behind `X-API-Key` when `API_KEY` is configured (ADR-26).
+
+    A no-op when `API_KEY` is unset — that is an explicit choice for a single-user
+    local deployment kept off any untrusted network, not an oversight; `app/main.py`
+    logs a startup warning in that case so the operator sees the trade-off being made.
+    """
+    if not settings.api_key:
+        return
+    if request.headers.get("x-api-key") != settings.api_key:
+        raise HTTPException(status_code=401, detail="Missing or invalid API key.")
 
 
 def _get_vector_store(request: Request) -> VectorStore:
@@ -163,19 +176,6 @@ def _to_schema_provider(provider: ProviderDescription) -> schemas.ProviderSummar
     )
 
 
-def _sanitize_provider_error(detail: str, secret: str) -> str:
-    """Redact a raw credential from a provider error before it leaves the process.
-
-    Provider SDKs occasionally echo request details verbatim in exception messages;
-    this is the only place a live-probe failure is rendered back to a client, so it is
-    the one place this redaction has to happen (R-08's masking rule extended to the new
-    write path).
-    """
-    if secret and secret in detail:
-        return detail.replace(secret, mask_secret(secret))
-    return detail
-
-
 def _to_schema_answer(answer: GeneratedAnswer) -> schemas.AnswerResponse:
     return schemas.AnswerResponse(
         answer=answer.answer,
@@ -191,6 +191,7 @@ def _to_schema_answer(answer: GeneratedAnswer) -> schemas.AnswerResponse:
     "/documents",
     response_model=schemas.IngestionJobResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_api_key)],
 )
 async def ingest_documents(
     background_tasks: BackgroundTasks,
@@ -211,6 +212,14 @@ async def ingest_documents(
     caller learns the outcome changed, not what it is).
     """
     loaded = [((file.filename or "unnamed"), await file.read()) for file in files]
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    oversized = [name for name, content in loaded if len(content) > max_bytes]
+    if oversized:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File(s) exceed the {settings.max_upload_mb}MB limit: "
+            f"{', '.join(oversized)}.",
+        )
     job = job_store.create(filenames=[name for name, _ in loaded])
     background_tasks.add_task(
         run_ingestion_job,
@@ -243,7 +252,11 @@ def get_ingestion_job(
     return _to_schema_job(job)
 
 
-@router.delete("/documents/jobs/{job_id}", response_model=schemas.IngestionJobResponse)
+@router.delete(
+    "/documents/jobs/{job_id}",
+    response_model=schemas.IngestionJobResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def cancel_ingestion_job(
     job_id: str,
     job_store: JobStore = Depends(_get_job_store),
@@ -275,7 +288,9 @@ def list_documents(
 
 
 @router.delete(
-    "/documents/{document_id}", response_model=schemas.DeleteDocumentResponse
+    "/documents/{document_id}",
+    response_model=schemas.DeleteDocumentResponse,
+    dependencies=[Depends(require_api_key)],
 )
 def delete_document(
     document_id: str,
@@ -288,7 +303,11 @@ def delete_document(
     return schemas.DeleteDocumentResponse(document_id=document_id, deleted=existed)
 
 
-@router.post("/reset", response_model=schemas.ResetResponse)
+@router.post(
+    "/reset",
+    response_model=schemas.ResetResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def reset_knowledge_base(
     store: VectorStore = Depends(_get_vector_store),
 ) -> schemas.ResetResponse:
@@ -301,6 +320,7 @@ def reset_knowledge_base(
     "/query",
     response_model=schemas.AnswerResponse,
     responses={502: {"model": schemas.ErrorResponse}},
+    dependencies=[Depends(require_api_key)],
 )
 def query(
     request: schemas.QueryRequest,
@@ -340,14 +360,62 @@ def query(
     return _to_schema_answer(result)
 
 
+@router.get("/health", response_model=schemas.HealthResponse)
+def health(settings: Settings = Depends(_get_settings)) -> schemas.HealthResponse:
+    """Real dependency status, not just "the process is running" (ADR-26).
+
+    Deliberately does not probe the LLM/embedding provider with a live call (that is
+    `POST /settings/test`'s job, and is slow/costly to run on every health poll) —
+    this checks only local, cheap-to-verify preconditions: the `pdftotext` binary PDF
+    parsing depends on, and, for `onnx_local`, that the pinned model files this
+    project ships a manifest for actually exist on disk.
+    """
+    checks = [
+        schemas.HealthCheck(
+            name="poppler",
+            ok=shutil.which("pdftotext") is not None,
+            detail=None if shutil.which("pdftotext") else "pdftotext not found on PATH",
+        )
+    ]
+    if settings.embedding_provider == "onnx_local":
+        model_dir = settings.embedding_onnx_model_dir
+        missing = [
+            name
+            for name in ("model_uint8.onnx", "tokenizer.json")
+            if not (model_dir / name).is_file()
+        ]
+        checks.append(
+            schemas.HealthCheck(
+                name="onnx_model_artifact",
+                ok=not missing,
+                detail=None if not missing else f"missing under {model_dir}: {missing}",
+            )
+        )
+    writable = _nearest_existing_ancestor_is_writable(settings.chroma_path)
+    checks.append(
+        schemas.HealthCheck(
+            name="chroma_path_writable",
+            ok=writable,
+            detail=None if writable else f"{settings.chroma_path} is not writable",
+        )
+    )
+    return schemas.HealthResponse(ok=all(c.ok for c in checks), checks=checks)
+
+
+def _nearest_existing_ancestor_is_writable(path: Path) -> bool:
+    for candidate in (path, *path.parents):
+        if candidate.exists():
+            return os.access(candidate, os.W_OK)
+    return False
+
+
 @router.get("/settings", response_model=schemas.SettingsResponse)
 def read_settings(
     settings: Settings = Depends(_get_settings),
 ) -> schemas.SettingsResponse:
     """Report the provider configuration currently in effect, with credentials masked
-    (R-08) — the environment/`.env` values resolved at startup, unless replaced since
-    by `POST /settings/llm`/`POST /settings/embedding` (ADR-10's amendment). This route
-    itself only reads `app.state.registry`; it never changes anything.
+    (R-08) — the environment/`.env` values resolved once at startup (ADR-26: there is
+    no runtime write path for this anymore). This route never changes anything.
     """
     llm_provider, embedding_provider = describe_providers(settings)
     return schemas.SettingsResponse(
@@ -370,90 +438,6 @@ def test_providers(
         llm=_check(lambda: probe_llm(llm)),
         embedding=_check(lambda: probe_embedding(embed_model)),
     )
-
-
-@router.post(
-    "/settings/llm",
-    response_model=schemas.ProviderSummary,
-    responses={502: {"model": schemas.ErrorResponse}},
-)
-def update_llm_settings(
-    request: schemas.UpdateLlmSettingsRequest,
-    registry: ProviderRegistry = Depends(_get_registry),
-) -> schemas.ProviderSummary:
-    """Replace the LLM provider at runtime: build -> probe -> commit only on success.
-
-    Never written to `.env` — process-local until the app restarts, at which point
-    `.env` is authoritative again. A failed probe leaves `registry` (and therefore
-    every dependent route) completely unchanged; a request already in flight with the
-    previous client simply finishes with it.
-    """
-    effective_api_key = request.api_key or registry.settings.llm_api_key
-    new_settings = registry.settings.model_copy(
-        update={
-            "llm_api_key": effective_api_key,
-            "llm_base_url": request.base_url,
-            "llm_model": request.model,
-        }
-    )
-    try:
-        llm = build_llm(new_settings)
-        probe_llm(llm)
-    except Exception as error:
-        detail = _sanitize_provider_error(
-            str(error) or type(error).__name__, effective_api_key
-        )
-        raise HTTPException(status_code=502, detail=detail) from error
-
-    registry.replace_llm(settings=new_settings, llm=llm)
-    return _to_schema_provider(describe_providers(new_settings)[0])
-
-
-@router.post(
-    "/settings/embedding",
-    response_model=schemas.ProviderSummary,
-    responses={
-        409: {"model": schemas.ErrorResponse},
-        502: {"model": schemas.ErrorResponse},
-    },
-)
-def update_embedding_settings(
-    request: schemas.UpdateEmbeddingSettingsRequest,
-    registry: ProviderRegistry = Depends(_get_registry),
-    store: VectorStore = Depends(_get_vector_store),
-) -> schemas.ProviderSummary:
-    """Replace the embedding provider at runtime: build -> probe -> fingerprint-safe
-    commit (ADR-8) -> only then update `registry`.
-
-    Never written to `.env`. A failed probe, or a fingerprint conflict with documents
-    already indexed under a different embedding model, leaves `registry` and the
-    vector store completely unchanged — this never resets or deletes the knowledge
-    base itself; that remains a separate, explicit `POST /reset` call.
-    """
-    effective_api_key = request.api_key or (registry.settings.embedding_api_key or "")
-    new_settings = registry.settings.model_copy(
-        update={
-            "embedding_api_key": effective_api_key,
-            "embedding_base_url": request.base_url,
-            "embedding_model": request.model,
-        }
-    )
-    try:
-        embed_model = build_embedding_model(new_settings)
-        probe_embedding(embed_model)
-    except Exception as error:
-        detail = _sanitize_provider_error(
-            str(error) or type(error).__name__, effective_api_key
-        )
-        raise HTTPException(status_code=502, detail=detail) from error
-
-    try:
-        store.adopt_embedding_fingerprint(new_settings.embedding_fingerprint)
-    except EmbeddingMismatchError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
-
-    registry.replace_embedding(settings=new_settings, embed_model=embed_model)
-    return _to_schema_provider(describe_providers(new_settings)[1])
 
 
 def _check(probe: Callable[[], None]) -> schemas.ConnectionCheck:

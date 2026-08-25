@@ -2,14 +2,12 @@
 
 Settings, the embedding client, and the LLM client are built once here, in `lifespan`,
 and handed to a `ProviderRegistry` stored on `app.state` — routes only ever read that
-registry (`api/routes.py`'s dependencies), never construct a client themselves. The
-registry's contents may later be replaced at runtime (`POST /settings/llm`,
-`POST /settings/embedding`), which is the part of ADR-10 that decision now amends; the
-`VectorStore` is not part of that registry and stays a true singleton, never rebuilt or
-swapped after startup. Opening the store here is also where the ADR-8
-embedding-fingerprint check runs, and a mismatch fails application startup rather than
-surfacing per request (see ADR-10 for why that is the simpler, correct choice once this
-module exists to own the lifecycle).
+registry (`api/routes.py`'s dependencies), never construct a client themselves.
+Provider configuration is resolved once at startup and never mutated afterward
+(ADR-26 removed the runtime provider-swap endpoints this registry used to support);
+the `VectorStore` is likewise a true singleton, never rebuilt or swapped. Opening the
+store here is also where the ADR-8 embedding-fingerprint check runs, and a mismatch
+fails application startup rather than surfacing per request.
 """
 
 from __future__ import annotations
@@ -44,13 +42,18 @@ def _lifespan_for(settings_factory: Callable[[], Settings]):
         configure_logging(settings.log_level)
         embed_model = build_embedding_model(settings)
         llm = build_llm(settings)
-        # The only mutable provider state in the process (ADR-10's amendment): routes
-        # read `app.state.registry`, never construct a client themselves, and a runtime
-        # settings update (see `api/routes.py`) replaces this object's contents only
-        # after the replacement client has already been proven reachable.
+        # Routes read `app.state.registry`, never construct a client themselves
+        # (ADR-10); its contents are set once here and never mutated afterward (ADR-26).
         app.state.registry = ProviderRegistry(
             settings=settings, llm=llm, embed_model=embed_model
         )
+        if not settings.api_key:
+            log_event(
+                logger,
+                logging.WARNING,
+                "starting with no API_KEY — every mutating endpoint is unauthenticated",
+                recommendation="only run this on a network you fully trust",
+            )
         # Constructing VectorStore performs the ADR-8 fingerprint check; letting
         # EmbeddingMismatchError propagate here fails startup instead of leaving the
         # app to serve requests against an index it cannot safely read or write. The

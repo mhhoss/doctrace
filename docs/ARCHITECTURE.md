@@ -333,6 +333,12 @@ data. `mask_secret` and a new `_sanitize_provider_error` helper apply to this pa
 exactly as they already did to `GET /settings`, so a probe failure's error message can
 never leak a raw key back to the caller (R-08).
 
+**Superseded by ADR-26**: both routes this ADR describes are removed. The exact risk
+this ADR's own "process-local, no durable config store" reasoning didn't consider —
+that an *unauthenticated* caller could set `base_url` to anything, not just a
+legitimate alternate gateway — was accepted as a hidden cost of the runtime-swap
+feature until ADR-26 removed it.
+
 **ADR-15 — Structured (JSON) logging via a new `app/observability.py`, with one strict
 invariant: a log record is metadata only, never document/query/answer text or
 credentials.** Before this, `app/` had no logging at all — no record of what was
@@ -652,6 +658,34 @@ text reuses the same `"No extractable text was found in this file."` outcome mes
 verification is deliberately not implemented: a second LLM call producing a different
 answer is not "fixing" the first, it's rolling dice, and there is no clear termination
 condition for such a loop.
+
+**ADR-26 — The runtime provider-swap endpoints (`POST /settings/llm`,
+`POST /settings/embedding`) are removed; an optional `API_KEY` gate and `GET /health`
+are added.** Removal, not a fix: those two endpoints accepted a `base_url` from any
+unauthenticated caller and, on a successful probe, pointed the live LLM/embedding
+client at it — a live SSRF/credential-exfiltration path with document context
+attached, for a feature (changing providers without a restart) no real deployment
+used. Provider configuration is env-file-only again, resolved once at startup;
+`GET /settings` (read-only, masked) and `POST /settings/test` (probes the *currently
+configured* provider only, accepts no request-supplied URL) are unaffected and stay.
+
+`require_api_key` gates every mutating route (`POST /documents`, `DELETE
+/documents/*`, `POST /reset`, `POST /query`) behind a matching `X-API-Key` header,
+checked against the optional `API_KEY` setting. Unset (the default) is a deliberate
+no-op, not an oversight — appropriate scope for a single-user local deployment kept
+off any untrusted network; `app/main.py` logs a startup warning in that case so the
+trade-off is visible, not silent. Full session/user auth would be over-engineering
+for what this project actually is; a shared static key closes the concrete exposure
+(anyone who can reach the port can wipe the knowledge base or run arbitrary queries)
+without pretending to be multi-tenant.
+
+`GET /health` reports real, cheap-to-check local preconditions — `pdftotext` on
+`PATH`, the pinned ONNX model files existing when `embedding_provider=onnx_local`,
+`chroma_path`'s nearest existing ancestor directory being writable — deliberately
+*not* a live provider call (that already exists, as `POST /settings/test`, and is too
+slow/costly to run on every health poll). `MAX_UPLOAD_MB` (default 50) caps
+`POST /documents`, which previously buffered an unbounded request body into memory
+before doing anything else with it.
 
 ## Performance
 

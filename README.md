@@ -156,9 +156,9 @@ default there is BAAI/bge-m3 served locally via Ollama — local-first, no docum
 leaves the machine. A hosted embedding provider is fully supported as an alternative
 (see `.env.example`), at the cost of sending document text to it.
 
-The Models panel in the UI can also change the LLM and embedding provider/model/key
-while the app is running — see "Changing providers at runtime" below. That never
-touches `.env`; restarting the app always falls back to whatever `.env` says.
+Provider configuration is env-file-only, resolved once at startup (ADR-26) — there is
+no runtime provider-swap endpoint; change `.env` and restart to switch providers. The
+Models panel in the UI shows the active configuration read-only.
 
 The provider must be OpenAI-compatible. LLM and embedding credentials are configured
 separately because some gateways (e.g. OpenRouter) serve chat completions but not
@@ -177,6 +177,8 @@ embeddings; embedding settings fall back to the LLM settings when omitted.
 | `RETRIEVAL_TOP_K`, `RETRIEVAL_MIN_SCORE` | Retrieval breadth and the groundedness cutoff |
 | `API_BASE_URL` | Where the Streamlit UI reaches the API |
 | `LOG_LEVEL` | API log verbosity (DEBUG/INFO/WARNING/ERROR/CRITICAL) |
+| `API_KEY` | Unset (default) leaves mutating endpoints unauthenticated; set to require a matching `X-API-Key` header (ADR-26) |
+| `MAX_UPLOAD_MB` | Per-file upload size limit for `POST /documents` (default 50) |
 
 `CHUNK_SIZE` and `CHUNK_OVERLAP` are character counts, not tokens. The embedding model
 must support both English and Persian, and changing it invalidates an existing index —
@@ -193,18 +195,12 @@ CPU throughput, including the moderately corrupted (broken-font) documents ADR-1
 tolerates instead of rejecting; raise `EMBEDDING_BATCH_SIZE` for a fast/hosted provider
 to improve ingestion throughput. See the Performance / Scale section below.
 
-### Changing providers at runtime
+### Switching providers
 
-The Models panel can replace the LLM or embedding provider (key, base URL, model)
-without restarting: it builds a client with the new values, makes one real call to
-confirm it actually works, and only then makes it the active one — a failed check
-leaves whichever provider was already running untouched. This is process-local only
-(never written to `.env`); restarting the app reverts to whatever `.env` says.
-
-Switching the embedding model this way is refused with an error, not silently applied,
-if documents are already indexed under a different one — exactly the same rule
-`EMBEDDING_MODEL` follows in `.env` (see above). Reset the knowledge base first if you
-want to switch anyway.
+Change the relevant variables in `.env` and restart the app (ADR-26 — no runtime swap
+endpoint exists). Switching the embedding model is refused with an error, not silently
+applied, if documents are already indexed under a different one — reset the knowledge
+base first if you want to switch anyway.
 
 ### Choosing an embedding backend
 

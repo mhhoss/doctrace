@@ -104,36 +104,6 @@ class ApiClient:
         """Probe both configured providers; outcomes come back as data, not errors."""
         return self._request("POST", "/settings/test", timeout=_PROBE_TIMEOUT).json()
 
-    def update_llm_settings(self, *, api_key: str, base_url: str, model: str) -> dict:
-        """Replace the LLM provider at runtime (process-local; never written to `.env`).
-
-        Raises `ApiError` if the new provider fails a live probe — the previous
-        provider is left in effect on the API side in that case.
-        """
-        return self._request(
-            "POST",
-            "/settings/llm",
-            json={"api_key": api_key, "base_url": base_url, "model": model},
-            timeout=_PROBE_TIMEOUT,
-        ).json()
-
-    def update_embedding_settings(
-        self, *, api_key: str, base_url: str, model: str
-    ) -> dict:
-        """Replace the embedding provider at runtime (process-local; never written to
-        `.env`).
-
-        Raises `ApiError` on a failed probe, or on an HTTP 409 if the change would
-        conflict with an already-indexed knowledge base (ADR-8) — the previous
-        provider is left in effect on the API side in either case.
-        """
-        return self._request(
-            "POST",
-            "/settings/embedding",
-            json={"api_key": api_key, "base_url": base_url, "model": model},
-            timeout=_PROBE_TIMEOUT,
-        ).json()
-
     def _request(
         self,
         method: str,
@@ -1099,11 +1069,11 @@ def _kv(key: str, value: str) -> str:
 def _render_provider_editor(
     client: ApiClient, *, slot: str, label: str, provider: dict, locality: bool = False
 ) -> None:
-    """One provider's current values, plus a form to replace them at runtime.
+    """One provider's current, read-only configuration.
 
-    A blank API key field means "keep the credential already in effect" — the masked
-    value shown is display-only, and the real secret never has to round-trip through
-    the browser just to be preserved (R-08's masking rule extended to this form).
+    Provider config is env/config-file-only, resolved once at startup (ADR-26) — there
+    is no runtime write path anymore, so this only ever displays `GET /settings`'s
+    result; change `.env` and restart the app to change a provider.
     """
     chip = ""
     if locality:
@@ -1114,55 +1084,14 @@ def _render_provider_editor(
         f'<div class="pka-field-label">{html.escape(label)}{chip}</div>',
         unsafe_allow_html=True,
     )
+    st.markdown(_kv("model", provider["model"]), unsafe_allow_html=True)
+    st.markdown(_kv("base URL", provider["base_url"]), unsafe_allow_html=True)
     st.markdown(_kv("key", provider["masked_key"]), unsafe_allow_html=True)
-
-    with st.form(f"{slot}-settings-form", clear_on_submit=False):
-        model = st.text_input("Model", value=provider["model"])
-        base_url = st.text_input("Base URL", value=provider["base_url"])
-        api_key = st.text_input(
-            "API key",
-            value="",
-            type="password",
-            placeholder="Leave blank to keep the current key",
-        )
-        # Deliberately not `type="primary"`: that hands the button Streamlit's own theme
-        # accent, which is neither this UI's palette nor the "＋ Add sources" button this
-        # one is meant to be indistinguishable from. As an ordinary full-width button it
-        # inherits exactly that button's fill, border, radius, type and hover.
-        saved = st.form_submit_button("Save", use_container_width=True)
-
-    error_key, saved_key = f"{slot}_settings_error", f"{slot}_settings_saved"
-    if saved:
-        try:
-            if slot == "llm":
-                client.update_llm_settings(
-                    api_key=api_key or "",
-                    base_url=base_url or "",
-                    model=model or "",
-                )
-            else:
-                client.update_embedding_settings(
-                    api_key=api_key or "",
-                    base_url=base_url or "",
-                    model=model or "",
-                )
-        except ApiError as error:
-            st.session_state[error_key] = str(error)
-            st.session_state[saved_key] = False
-        else:
-            st.session_state[error_key] = None
-            st.session_state[saved_key] = True
-        st.rerun()
-
-    if st.session_state.get(error_key):
-        _alert(st.session_state[error_key])
-    elif st.session_state.get(saved_key):
-        st.markdown(
-            '<div class="pka-note">Saved — in effect now. Runtime changes are not '
-            "written to <code>.env</code>; restarting the app reverts to it."
-            "</div>",
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        '<div class="pka-note">Set in <code>.env</code>; restart the app to change '
+        "it.</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_probe_result(result: dict) -> None:

@@ -116,8 +116,11 @@ class TestStartupBehavior:
         with caplog.at_level(logging.INFO, logger="app.main"), TestClient(app):
             pass
 
-        record = next(r for r in caplog.records if r.name == "app.main")
-        assert record.getMessage() == "startup complete"
+        record = next(
+            r
+            for r in caplog.records
+            if r.name == "app.main" and r.getMessage() == "startup complete"
+        )
         assert log_fields(record)["embedding_model"] == EMBEDDING_MODEL_A
         # The raw key must never reach a log line, structured or otherwise.
         assert "sk-secret-value" not in json.dumps(log_fields(record))
