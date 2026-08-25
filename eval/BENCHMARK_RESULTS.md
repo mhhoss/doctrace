@@ -1,13 +1,18 @@
 # Embedding model benchmark: bge-m3 vs multilingual-e5-small vs multilingual-e5-base
 
+Raw results log. For the narrative write-up of this benchmark (by Mahdi Hosseini), see
+[`EMBEDDING_MODEL_BENCHMARK.md`](EMBEDDING_MODEL_BENCHMARK.md).
+
 Status: **final**, with a 2026-08-25 addendum below. Original run 2026-08-19, fully offline (no network, no downloads — `HF_HUB_OFFLINE=1`,
 `TRANSFORMERS_OFFLINE=1`, `uv run --offline`), sequentially (one model loaded, benchmarked,
 and released via `del` + `gc.collect()` before the next started). Hardware: Intel Core
 i5-6200U, 2 cores / 4 threads, CPU-only.
 
 Methodology, corpus, and queries: `eval/README.md`, `eval/corpus/`, `eval/queries.json`
-(23 queries, 6 documents, unchanged). Script: `eval/run_benchmark.py`. Raw per-model output:
-`eval/results/*.json`.
+(23 queries, 6 documents, unchanged). Script: `eval/run_benchmark.py`. Raw per-model output
+for this original run: `eval/results/*.json` (frozen — never overwritten by a later run;
+see the script's own `--run-tag`). Raw output for the 2026-08-25 addendum below:
+`eval/results/2026-08-25/*.json`.
 
 Text extraction and chunking reused the app's real pipeline unmodified
 (`app.documents.loader`, `app.documents.processor`, `chunk_size=1024`/`chunk_overlap=128` —

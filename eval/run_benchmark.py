@@ -15,12 +15,16 @@ setup. The other specs read an external ONNX export cache that only exists on th
 machine this benchmark was originally run on; each is skipped with a warning, not a
 crash, when its cache directory is absent (e.g. on a fresh clone).
 
-This script does not modify production code; it only reads it (loader/processor) and
-writes benchmark artifacts under eval/results/.
+This script does not modify production code; it only reads it (loader/processor). Each
+run writes to its own `eval/results/<run-tag>/` subdirectory (default: today's date, or
+pass `--run-tag`) — `eval/results/*.json` at the top level is the frozen 2026-08-19
+baseline run and is never overwritten by a later run.
 """
 
 from __future__ import annotations
 
+import argparse
+import datetime
 import gc
 import json
 import statistics
@@ -312,6 +316,19 @@ def run_model(spec: ModelSpec, texts: list[str], meta: list[dict], queries: list
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--run-tag",
+        default=datetime.datetime.now(tz=datetime.UTC).date().isoformat(),
+        help="Subdirectory under eval/results/ to write into (default: today's date). "
+        "Every run gets its own subdirectory so a re-run never silently overwrites a "
+        "prior run's numbers — eval/results/*.json at the top level is the frozen "
+        "2026-08-19 baseline run and is never written to by this script again.",
+    )
+    args = parser.parse_args()
+    out_dir = RESULTS_DIR / args.run_tag
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     print("Loading and chunking eval corpus via app.documents pipeline...")
     texts, meta = load_corpus_chunks()
     queries = load_queries()
@@ -325,14 +342,14 @@ def main() -> None:
             continue
         result = run_model(spec, texts, meta, queries)
         all_results.append(result)
-        (RESULTS_DIR / f"{spec.key}.json").write_text(
+        (out_dir / f"{spec.key}.json").write_text(
             json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
-    (RESULTS_DIR / "all_models.json").write_text(
+    (out_dir / "all_models.json").write_text(
         json.dumps(all_results, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(f"\nWrote results to {RESULTS_DIR}")
+    print(f"\nWrote results to {out_dir}")
 
 
 if __name__ == "__main__":
