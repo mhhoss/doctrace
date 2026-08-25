@@ -727,6 +727,36 @@ and per-section isolation (ADR-25's design) correctly marked only that one secti
 failed while the rest of the document completed normally — confirming the isolation
 design under a real failure, not only a unit test.
 
+**ADR-28 — Streamlit is replaced by a React + TypeScript + Vite frontend
+(`web/`), built to static files and served by the same FastAPI process
+(`app/main.py` mounts `web/dist` after the API router, skipped entirely if that
+directory does not exist — the build is optional, not a startup dependency).**
+Motivation: the product's actual trust mechanism — a citation the user can verify
+against an exact source page — needs a real PDF viewer with page navigation, which is
+routine in a real frontend stack and effectively unbuildable in Streamlit; the old
+`streamlit_app.py` had already grown to 1,500+ lines of CSS/HTML working around the
+framework to approximate a real UI's look, without ever reaching this specific
+capability. No client-side router: the app is one page with tab state (Requirements /
+Ask), not a multi-page SPA, since nothing here yet needs a URL of its own — adding one
+speculatively would be exactly the kind of complexity this project's own strategy
+explicitly avoids.
+
+The frontend owns exactly one new architectural decision worth recording: the PDF
+viewer (`web/src/components/PdfViewer.tsx`, using `pdfjs-dist`) renders **entirely
+client-side**, from the bytes already in the browser from the file the user just
+selected — the backend does not persist or serve original files (a real, disclosed
+gap; storing them is a separate, later, planned change), so there is no server
+round-trip for a preview and, for now, no way to reopen a past extraction's source
+after a page reload. `web/README.md` documents this and two other explicit,
+by-design scope limits (no in-canvas highlight overlay, "Ask" searching the whole
+knowledge base rather than one document, matching what `POST /query` actually does
+today) rather than letting the UI imply a capability the API doesn't have.
+
+Streamlit (`streamlit_app.py`) is **not removed yet** — it remains fully functional
+(its Models panel already went read-only under ADR-26) as a working fallback until
+the React UI reaches feature parity, at which point removing it is a separate,
+later change, not bundled into this one.
+
 ## Performance
 
 Scale evaluation (2026-08-18) against the current production setup: poppler PDF

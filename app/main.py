@@ -15,8 +15,10 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import (
@@ -106,10 +108,18 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         _settings_from_environment if settings is None else (lambda: settings)
     )
     app = FastAPI(
-        title="Private Knowledge Assistant",
+        title="Document Intelligence",
         lifespan=_lifespan_for(settings_factory),
     )
     app.include_router(router)
+    # The built React app (web/dist, `npm run build` in web/), mounted after the API
+    # router so an API path always resolves first — this is registration order, not a
+    # path-prefix distinction, since the SPA is mounted at "/" too (ADR-28). Absent in
+    # dev-against-source or a checkout that never ran the frontend build; skipped
+    # rather than failing startup, since the API is fully usable without it.
+    web_dist = Path(__file__).resolve().parent.parent / "web" / "dist"
+    if web_dist.is_dir():
+        app.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
     return app
 
 

@@ -323,3 +323,34 @@ class TestExistingApiBehaviorUnchanged:
             response = client.post("/query", json={"query": "   "})
 
         assert response.status_code == 422
+
+
+class TestFrontendStaticMount:
+    """`create_app` mounts `web/dist` when it exists (ADR-28) — optional, never a
+    reason to fail startup, and API routes always resolve first regardless."""
+
+    def test_api_routes_still_resolve_when_the_frontend_is_mounted(
+        self, tmp_path: Path
+    ) -> None:
+        """Registration order (API router before the static mount) means an API path
+        is never shadowed by the SPA catch-all, whether or not `web/dist` exists."""
+        app = create_app(settings=_settings(tmp_path / "chroma"))
+
+        with TestClient(app) as client:
+            response = client.get("/documents")
+
+        assert response.status_code == 200
+        assert response.json() == {"documents": []}
+
+    def test_root_serves_the_frontend_when_built(self, tmp_path: Path) -> None:
+        web_dist = Path(__file__).resolve().parents[2] / "web" / "dist"
+        if not web_dist.is_dir():
+            pytest.skip("web/dist not built in this checkout — run `npm run build` in web/")
+
+        app = create_app(settings=_settings(tmp_path / "chroma"))
+
+        with TestClient(app) as client:
+            response = client.get("/")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
