@@ -23,4 +23,10 @@ chroma_db/
 # Local test corpus for manual UI/retrieval testing
 real_corpus/
 
+# Pinned local embedding model artifacts (large binaries; provenance lives in
+# models/*/manifest.json, which IS tracked).
+models/*/*.onnx
+models/*/tokenizer.json
+models/*/config.json
+
 .DS_Store

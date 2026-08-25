@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
@@ -42,21 +42,16 @@ class Settings(BaseSettings):
     embedding_api_key: str | None = None
     embedding_base_url: str | None = None
     embedding_model: str = "bge-m3"
-    # Defaults tuned for a slow (e.g. local CPU) embedding backend, at which the
-    # library defaults (embed_batch_size=100, timeout=60s) reproducibly fail outright
-    # on any document with more than a couple dozen chunks (one over-long request per
-    # batch exceeds the timeout). Re-measured 2026-08-20 (ADR-19) against a real
-    # CPU-served BAAI/bge-m3 under real ingestion load, including the moderately
-    # corrupted (broken-font) documents ADR-18 now tolerates: ~6.3-6.6s/chunk
-    # sustained for clean text, ~22-24s/chunk sustained for that corrupted family (the
-    # 2.5-2.8s/chunk this project measured previously no longer held on this
-    # deployment). embedding_batch_size=5 with embedding_timeout_seconds=300 keeps a
-    # full batch at a conservative 30s/chunk (150s) comfortably (2x) under the
-    # timeout even for the slower corrupted-family case; a fast/hosted embedding
-    # provider can raise embedding_batch_size for higher throughput without hitting
-    # this failure mode.
+    # "onnx_local" (ADR-23) skips HTTP entirely and loads a pinned ONNX model from
+    # disk — see `embedding_onnx_model_dir` below. Left as the default for every
+    # existing deployment; nothing changes unless this is explicitly set.
+    embedding_provider: Literal["openai_compatible", "onnx_local"] = (
+        "openai_compatible"
+    )
     embedding_batch_size: int = Field(default=5, ge=1)
     embedding_timeout_seconds: float = Field(default=300.0, gt=0.0)
+    embedding_onnx_model_dir: Path = Path("models/xenova-bge-m3-uint8")
+    embedding_onnx_intra_threads: int = Field(default=4, ge=1)
 
     chroma_path: Path = Path("./chroma_db")
     # Chroma's own naming rule, enforced here so a bad value fails at startup.
@@ -98,7 +93,18 @@ class Settings(BaseSettings):
 
         The base URL is intentionally excluded: the same model behind a different
         gateway is still the same model.
+
+        "openai_compatible" (the only provider that existed originally) keeps the
+        exact pre-existing format — bare `embedding_model` — so upgrading never
+        invalidates a fingerprint already persisted in an existing `chroma_db/`
+        (ADR-8 would otherwise misfire as a false mismatch on the very next startup).
+        "onnx_local" (ADR-23) gets a distinguishing prefix plus its fixed output
+        dimension (1024, per the pinned artifact's manifest) folded in, so it can
+        never collide with an `openai_compatible` collection using the same model
+        family name (e.g. both being called "bge-m3").
         """
+        if self.embedding_provider == "onnx_local":
+            return f"onnx_local:{self.embedding_model}:1024"
         return self.embedding_model
 
 
@@ -115,14 +121,11 @@ def require_credentials(settings: Settings) -> None:
     Real application startup calls this separately so a forgotten `.env` fails at
     startup with an actionable message instead of an opaque 502 on first use.
     """
-    missing = [
-        name
-        for name, value in (
-            ("LLM_API_KEY", settings.llm_api_key),
-            ("EMBEDDING_API_KEY", settings.embedding_api_key),
-        )
-        if not value
-    ]
+    # "onnx_local" needs no credential at all — it never makes a network call.
+    required: list[tuple[str, str | None]] = [("LLM_API_KEY", settings.llm_api_key)]
+    if settings.embedding_provider != "onnx_local":
+        required.append(("EMBEDDING_API_KEY", settings.embedding_api_key))
+    missing = [name for name, value in required if not value]
     if missing:
         raise RuntimeError(
             f"Missing required configuration: {', '.join(missing)}. Copy "
@@ -146,6 +149,8 @@ class ProviderDescription:
     base_url: str
     masked_key: str
     is_local: bool
+    provider: Literal["openai_compatible", "onnx_local"] = "openai_compatible"
+    dimension: int | None = None
 
 
 def mask_secret(value: str) -> str:
@@ -174,14 +179,32 @@ def describe_providers(settings: Settings) -> tuple[ProviderDescription, Provide
             masked_key=mask_secret(settings.llm_api_key),
             is_local=_is_local_host(settings.llm_base_url),
         ),
-        ProviderDescription(
+        _describe_embedding(settings),
+    )
+
+
+def _describe_embedding(settings: Settings) -> ProviderDescription:
+    if settings.embedding_provider == "onnx_local":
+        # No network endpoint at all: reports the pinned model directory in place of
+        # a base URL/key, both of which are meaningless for this provider.
+        return ProviderDescription(
             model=settings.embedding_model,
-            host=urlparse(settings.embedding_base_url or "").netloc
-            or (settings.embedding_base_url or ""),
-            base_url=settings.embedding_base_url or "",
-            masked_key=mask_secret(settings.embedding_api_key or ""),
-            is_local=_is_local_host(settings.embedding_base_url or ""),
-        ),
+            host="local",
+            base_url=str(settings.embedding_onnx_model_dir),
+            masked_key="not applicable (local ONNX model)",
+            is_local=True,
+            provider="onnx_local",
+            dimension=1024,
+        )
+    embedding_base_url = settings.embedding_base_url or ""
+    return ProviderDescription(
+        model=settings.embedding_model,
+        host=urlparse(embedding_base_url).netloc or embedding_base_url,
+        base_url=embedding_base_url,
+        masked_key=mask_secret(settings.embedding_api_key or ""),
+        is_local=_is_local_host(embedding_base_url),
+        provider="openai_compatible",
+        dimension=None,
     )
 
 
@@ -207,6 +230,9 @@ def build_embedding_model(settings: Settings) -> BaseEmbedding:
     lookup and is sent to the API as-is, which is what R-08's "any OpenAI-compatible
     provider, no code change" actually requires.
     """
+    if settings.embedding_provider == "onnx_local":
+        return _build_onnx_embedding(settings)
+
     from llama_index.embeddings.openai import OpenAIEmbedding
 
     return OpenAIEmbedding(
@@ -215,6 +241,110 @@ def build_embedding_model(settings: Settings) -> BaseEmbedding:
         api_base=settings.embedding_base_url,
         embed_batch_size=settings.embedding_batch_size,
         timeout=settings.embedding_timeout_seconds,
+    )
+
+
+def _build_onnx_embedding(settings: Settings) -> BaseEmbedding:
+    """Fully local, offline embedding client for the pinned ONNX model (ADR-23).
+
+    Pooling/normalization match `eval/run_benchmark.py`'s `OnnxEmbedder`: CLS-token
+    pooling, L2 normalization, 512-token truncation, no query/passage prefix.
+    """
+    from typing import Any
+
+    import onnxruntime as ort
+    from llama_index.core.base.embeddings.base import BaseEmbedding as _BaseEmbedding
+    from pydantic import PrivateAttr
+    from tokenizers import Tokenizer
+
+    model_dir = settings.embedding_onnx_model_dir
+    onnx_path = model_dir / "model_uint8.onnx"
+    tokenizer_path = model_dir / "tokenizer.json"
+    for path in (onnx_path, tokenizer_path):
+        if not path.is_file():
+            raise RuntimeError(
+                f"onnx_local embedding provider: missing pinned model file {path}. "
+                f"See {model_dir / 'manifest.json'} for how this artifact is pinned."
+            )
+
+    class _OnnxLocalEmbedding(_BaseEmbedding):
+        onnx_path: Path
+        intra_threads: int
+        _tokenizer: Any = PrivateAttr(default=None)
+        _session: Any = PrivateAttr(default=None)
+        _input_names: set = PrivateAttr(default_factory=set)
+
+        @classmethod
+        def class_name(cls) -> str:
+            return "onnx_local_embedding"
+
+        def model_post_init(self, context: object, /) -> None:
+            self._tokenizer = Tokenizer.from_file(str(tokenizer_path))
+            self._tokenizer.enable_truncation(max_length=512)
+            pad_id = self._tokenizer.token_to_id("<pad>")
+            pad_token = "<pad>"
+            if pad_id is None:
+                pad_id = self._tokenizer.token_to_id("[PAD]")
+                pad_token = "[PAD]"
+            self._tokenizer.enable_padding(pad_id=pad_id or 0, pad_token=pad_token)
+            self._session = None  # built lazily by `_ensure_session`
+
+        def _ensure_session(self) -> None:
+            if self._session is not None:
+                return
+            so = ort.SessionOptions()
+            so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            so.intra_op_num_threads = self.intra_threads
+            so.inter_op_num_threads = 1
+            self._session = ort.InferenceSession(
+                str(self.onnx_path), sess_options=so, providers=["CPUExecutionProvider"]
+            )
+            self._input_names = {i.name for i in self._session.get_inputs()}
+
+        def set_intra_threads(self, intra_threads: int) -> None:
+            """Rebuild the session with a new thread count (used by the ingestion
+            script's thermal governor to reduce CPU pressure mid-run)."""
+            if intra_threads == self.intra_threads and self._session is not None:
+                return
+            self.intra_threads = intra_threads
+            self._session = None
+            self._ensure_session()
+
+        def _embed(self, texts: list[str]) -> list[list[float]]:
+            import numpy as np
+
+            if not texts:
+                return []
+            self._ensure_session()
+            enc = self._tokenizer.encode_batch(texts)
+            ids = np.array([e.ids for e in enc], dtype=np.int64)
+            mask = np.array([e.attention_mask for e in enc], dtype=np.int64)
+            feeds = {"input_ids": ids, "attention_mask": mask}
+            if "token_type_ids" in self._input_names:
+                feeds["token_type_ids"] = np.zeros_like(ids)
+            feeds = {k: v for k, v in feeds.items() if k in self._input_names}
+            out = self._session.run(None, feeds)[0]
+            vec = out[:, 0, :]  # CLS-token pooling (bge-m3's published dense recipe)
+            vec = vec / np.clip(np.linalg.norm(vec, axis=1, keepdims=True), 1e-12, None)
+            return vec.astype(np.float32).tolist()
+
+        def _get_query_embedding(self, query: str) -> list[float]:
+            return self._embed([query])[0]
+
+        def _get_text_embedding(self, text: str) -> list[float]:
+            return self._embed([text])[0]
+
+        def _get_text_embeddings(self, texts: list[str]) -> list[list[float]]:
+            return self._embed(texts)
+
+        async def _aget_query_embedding(self, query: str) -> list[float]:
+            return self._get_query_embedding(query)
+
+    return _OnnxLocalEmbedding(
+        model_name=settings.embedding_model,
+        onnx_path=onnx_path,
+        intra_threads=settings.embedding_onnx_intra_threads,
+        embed_batch_size=settings.embedding_batch_size,
     )
 
 

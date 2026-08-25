@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from app.documents.processor import (
@@ -312,3 +314,37 @@ class TestPathologicalTextDetection:
             pass
         else:
             pytest.fail("expected PathologicalTextError")
+
+
+class TestProcessDocumentPerformance:
+    def test_stays_near_linear_on_a_large_document(self) -> None:
+        """Regression guard: normalization/chunking must stay CPU-negligible even on
+        a book-length document, since real ingestion wall-clock is entirely spent on
+        embedding, not here (ADR-21) — a future change that makes any pass over the
+        text quadratic would silently erase that margin."""
+        unit = "این یک جمله آزمایشی برای اندازه‌گیری کارایی است. " * 20
+        small_text = unit * 50  # ~50k chars
+        large_text = unit * 500  # ~500k chars, ~10x larger
+
+        def timed(text: str) -> float:
+            start = time.perf_counter()
+            process_document(
+                document_id="d",
+                filename="doc.txt",
+                file_type="txt",
+                raw_text=text,
+                chunk_size=1024,
+                chunk_overlap=128,
+            )
+            return time.perf_counter() - start
+
+        # Warm up (imports, regex compilation caches) before timing either size.
+        timed(unit)
+
+        small_elapsed = timed(small_text)
+        large_elapsed = timed(large_text)
+
+        # A quadratic algorithm would take ~100x longer for 10x the input; a linear
+        # one takes ~10x. Generous 25x ceiling absorbs noise/scheduling jitter
+        # without missing a real quadratic regression.
+        assert large_elapsed < max(small_elapsed * 25, 2.0)

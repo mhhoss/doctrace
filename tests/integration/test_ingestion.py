@@ -97,6 +97,28 @@ class TestIndexing:
         assert outcome.chunk_count == 0
         assert store.count() == before
 
+    def test_check_already_indexed_matches_index_document_without_writing(
+        self, store: VectorStore, embed_model: StubEmbedding
+    ) -> None:
+        """ADR-21: the standalone pre-check gives the same answer `index_document`
+        would, without needing chunks or touching the store."""
+        assert (
+            indexer.check_already_indexed(
+                store=store, document_id="en1", filename="report.pdf"
+            )
+            is None
+        )
+
+        chunks = make_chunks("en1", "report.pdf", ENGLISH_TEXT)
+        index_document(store=store, embed_model=embed_model, chunks=chunks)
+
+        already = indexer.check_already_indexed(
+            store=store, document_id="en1", filename="report.pdf"
+        )
+        assert already is not None
+        assert already.status is IngestStatus.ALREADY_INDEXED
+        assert already.document_id == "en1"
+
     def test_empty_chunk_list_is_a_caller_error(
         self, store: VectorStore, embed_model: StubEmbedding
     ) -> None:

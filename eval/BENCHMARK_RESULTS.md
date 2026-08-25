@@ -1,6 +1,6 @@
 # Embedding model benchmark: bge-m3 vs multilingual-e5-small vs multilingual-e5-base
 
-Status: **final**. Run 2026-08-19, fully offline (no network, no downloads — `HF_HUB_OFFLINE=1`,
+Status: **final**, with a 2026-08-25 addendum below. Original run 2026-08-19, fully offline (no network, no downloads — `HF_HUB_OFFLINE=1`,
 `TRANSFORMERS_OFFLINE=1`, `uv run --offline`), sequentially (one model loaded, benchmarked,
 and released via `del` + `gc.collect()` before the next started). Hardware: Intel Core
 i5-6200U, 2 cores / 4 threads, CPU-only.
@@ -93,3 +93,38 @@ separability gaps for the e5 models are a small-corpus measurement (19 answerabl
 out-of-corpus queries) and could narrow or widen at larger scale — but the same caveat already
 applied to bge-m3's original single-model result, and this run at least gives a real
 comparison point instead of none.
+
+## Addendum — 2026-08-25: the pinned UINT8 quantized export (ADR-23)
+
+Re-run with the same corpus/queries/script, adding `bge-m3-uint8-xenova` — the
+`Xenova/bge-m3` dynamic-UINT8 ONNX export pinned at `models/xenova-bge-m3-uint8/`
+(provenance and checksums in that directory's `manifest.json`), which backs the new
+`onnx_local` embedding provider. Same hardware; absolute ms/chunk figures vary run to
+run with machine load (fp32 bge-m3 measured 3091.6 ms/chunk here vs. 2604.9 above),
+so compare the two bge-m3 rows from the *same* run, not across runs.
+
+| Model | Top-1 accuracy | Recall@5 | Separability gap | Ingestion (ms/chunk) | Query latency (ms) |
+| --- | --- | --- | --- | --- | --- |
+| bge-m3 (fp32) | 100.0% | 100.0% | +0.024 | 3091.6 | 170.4 |
+| **bge-m3-uint8-xenova** | **100.0%** | **100.0%** | **+0.011** | **2345.9** | **108.1** |
+| multilingual-e5-small | 94.7% | 94.7% | −0.047 | 295.4 | 20.7 |
+| multilingual-e5-base | 89.5% | 100.0% | −0.049 | 830.5 | 69.8 |
+
+**Quality is unchanged** on this corpus — identical top-1 accuracy and recall@5 to fp32,
+including every cross-lingual query. **The separability gap roughly halves** (0.024 → 0.011):
+still positive, so `RETRIEVAL_MIN_SCORE=0.47` is not invalidated, but the margin between
+"lowest genuine answer" and "highest false positive" is thinner than the value the threshold
+was originally tuned against. This is a real cost of quantization, not noise — expected, and
+worth watching if the threshold is ever retuned or the corpus grows.
+
+**Performance improves**: ~24% faster ingestion, ~37% faster query latency, entirely from
+INT8 arithmetic and a smaller on-disk model — with no separate hosted embedding service to
+run, unlike the Ollama-served fp32 path.
+
+**Recommendation stands, refined**: `bge-m3-uint8-xenova` is the right default for the
+`onnx_local` provider specifically — same accuracy, faster, fully offline, no separate
+service to operate. It is not a blanket replacement recommendation for the Ollama-served fp32
+path, since ADR-8's fingerprint keys them as distinct, non-interchangeable embedding
+configurations and existing `chroma_db/` collections built on one are not compatible with the
+other. Before lowering `RETRIEVAL_MIN_SCORE` for `onnx_local`, re-measure on a larger corpus —
+a 0.011 gap on 6 documents / 23 queries is not enough evidence to tune a threshold on.

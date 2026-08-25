@@ -168,6 +168,8 @@ embeddings; embedding settings fall back to the LLM settings when omitted.
 | --- | --- |
 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | Chat/completion provider |
 | `EMBEDDING_API_KEY`, `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL` | Embedding provider (optional; defaults to the LLM values) |
+| `EMBEDDING_PROVIDER` | `openai_compatible` (default) or `onnx_local` (ADR-23) — see below |
+| `EMBEDDING_ONNX_INTRA_THREADS` | `onnx_local`-only: ONNX Runtime thread count (default 4) |
 | `EMBEDDING_BATCH_SIZE`, `EMBEDDING_TIMEOUT_SECONDS` | Chunks per embedding request, and its timeout — tuned for slow backends by default |
 | `CHROMA_PATH`, `CHROMA_COLLECTION` | Vector store location and collection |
 | `DATA_DIR` | Uploaded originals |
@@ -222,6 +224,13 @@ almost entirely on where the embedding model runs:
 - **Hosted API** (e.g. OpenAI's own embedding endpoint) — fastest and most consistent,
   at the cost of sending document text to that provider (no longer local-only for that
   data). Raise `EMBEDDING_BATCH_SIZE` toward the provider's own batch limit.
+- **Local ONNX model** (`EMBEDDING_PROVIDER=onnx_local`, ADR-23) — no HTTP call at
+  all: loads the pinned `Xenova/bge-m3` UINT8 export from `models/xenova-bge-m3-uint8/`
+  directly. Fully offline, no external network dependency, ~24% faster ingestion and
+  ~37% faster query than the CPU-served Ollama path at identical accuracy on the
+  `eval/` corpus (see `eval/BENCHMARK_RESULTS.md`'s addendum) — the trade-off is a
+  thinner score-separability margin, so re-measure `RETRIEVAL_MIN_SCORE` before
+  relying on it at scale.
 
 Whichever backend you choose, `EMBEDDING_MODEL` must support both English and Persian,
 and changing it later requires resetting the knowledge base (see above).

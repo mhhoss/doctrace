@@ -118,6 +118,28 @@ class TestIngestFile:
         (doc,) = store.list_documents()
         assert doc.filename == "report.pdf"  # ADR-3: first filename wins
 
+    def test_reuploading_identical_content_skips_chunking_entirely(
+        self,
+        store: VectorStore,
+        embed_model: StubEmbedding,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """ADR-21: the dedup check runs right after `load()`, before
+        normalization/chunking — a duplicate re-upload never reaches
+        `process_document`, however large or slow that would be to run."""
+        import app.rag.engine as engine_module
+
+        content = build_pdf([ENGLISH_TEXT])
+        do_ingest(store, embed_model, "report.pdf", content)
+
+        def _boom(**kwargs: object) -> None:
+            raise AssertionError("process_document must not run for a duplicate")
+
+        monkeypatch.setattr(engine_module, "process_document", _boom)
+
+        second = do_ingest(store, embed_model, "report_copy.pdf", content)
+        assert second.status is IngestStatus.ALREADY_INDEXED
+
 
 # Reproduces `15_abyari_ch3.pdf`'s/`16_apartmani3_ch2.pdf`'s real broken-font
 # signature (Amuzeh custom encoding): a `ToUnicode` CMap that maps glyphs to C0

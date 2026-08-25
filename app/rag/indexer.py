@@ -50,6 +50,27 @@ class IngestOutcome:
         )
 
 
+def check_already_indexed(
+    *, store: VectorStore, document_id: str, filename: str
+) -> IngestOutcome | None:
+    """Cheap pre-check (ADR-21): a single filtered, `limit=1` Chroma lookup, versus
+    the cost of normalizing/chunking/embedding a duplicate from scratch. Returns the
+    `ALREADY_INDEXED` outcome if this content is already in the store, else `None`.
+
+    Purely an optimization: `index_document` repeats this check itself, so calling it
+    early (before chunking, from `engine.ingest_file`) is never required for
+    correctness, only for skipping wasted work on a duplicate re-upload.
+    """
+    if store.document_exists(document_id):
+        # Identical content, by ADR-3's content-derived id: nothing to re-embed.
+        return IngestOutcome(
+            filename=filename,
+            status=IngestStatus.ALREADY_INDEXED,
+            document_id=document_id,
+        )
+    return None
+
+
 def index_document(
     *,
     store: VectorStore,
@@ -67,13 +88,11 @@ def index_document(
     document_id = chunks[0].document_id
     filename = chunks[0].filename
 
-    if store.document_exists(document_id):
-        # Identical content, by ADR-3's content-derived id: nothing to re-embed.
-        return IngestOutcome(
-            filename=filename,
-            status=IngestStatus.ALREADY_INDEXED,
-            document_id=document_id,
-        )
+    already_indexed = check_already_indexed(
+        store=store, document_id=document_id, filename=filename
+    )
+    if already_indexed is not None:
+        return already_indexed
 
     try:
         _write(store=store, embed_model=embed_model, chunks=chunks)

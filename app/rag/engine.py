@@ -21,7 +21,7 @@ from app.documents.parser import ParsingError
 from app.documents.processor import PathologicalTextError, process_document
 from app.observability import log_event
 from app.rag.generator import ContextChunk, GeneratedAnswer, generate
-from app.rag.indexer import IngestOutcome, index_document
+from app.rag.indexer import IngestOutcome, check_already_indexed, index_document
 from app.rag.retriever import retrieve
 from app.storage.vector_store import VectorStore
 
@@ -46,7 +46,8 @@ def ingest_file(
     Every failure mode — an unsupported extension, an unreadable file, no extractable
     text, or an embedding/store failure during indexing — becomes a failed
     `IngestOutcome` for this file. This function never raises, and a failure here never
-    affects any other file (ADR-7).
+    affects any other file (ADR-7). A duplicate re-upload short-circuits right after
+    `load()`, before chunking/normalization ever runs (ADR-21).
     """
     try:
         document = load(filename=filename, content=content)
@@ -54,6 +55,14 @@ def ingest_file(
         outcome = IngestOutcome.failure(filename=filename, error=str(error))
         _log_ingest_outcome(outcome)
         return outcome
+
+    already_indexed = check_already_indexed(
+        store=store, document_id=document.document_id, filename=document.filename
+    )
+    if already_indexed is not None:
+        # Skip normalization, chunking, and the pathological-text scan entirely
+        _log_ingest_outcome(already_indexed)
+        return already_indexed
 
     try:
         chunks = process_document(

@@ -363,12 +363,12 @@
   },
   "performance": {
     "n_chunks": 45,
-    "ingestion_wall_seconds": 28.92821970199998,
-    "ingestion_cpu_seconds": 111.35389173300001,
-    "ms_per_chunk_wall": 642.8493267111106,
-    "chunks_per_sec": 1.5555744689289983,
+    "ingestion_wall_seconds": 37.37140669298242,
+    "ingestion_cpu_seconds": 112.53623386599998,
+    "ms_per_chunk_wall": 830.4757042884982,
+    "chunks_per_sec": 1.2041291453032212,
     "n_queries": 23,
-    "query_wall_seconds": 0.9244020520000049,
-    "ms_per_query_wall": 40.19139356521761
+    "query_wall_seconds": 1.606221636000555,
+    "ms_per_query_wall": 69.83572330437197
   }
 }

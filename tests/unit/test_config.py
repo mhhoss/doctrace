@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any, cast
+
 import pytest
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
@@ -44,6 +47,11 @@ class TestEmbeddingProviderFallback:
         assert settings.llm_api_key == "router-key"
 
 
+class TestEmbeddingProviderDefault:
+    def test_defaults_to_openai_compatible(self) -> None:
+        assert Settings(**settings_kwargs()).embedding_provider == "openai_compatible"
+
+
 class TestEmbeddingFingerprint:
     def test_fingerprint_is_the_model_name(self) -> None:
         settings = Settings(**settings_kwargs(embedding_model="multilingual-e5"))
@@ -59,6 +67,27 @@ class TestEmbeddingFingerprint:
             **settings_kwargs(embedding_base_url="https://proxy.internal/v1", **common)
         )
         assert direct.embedding_fingerprint == proxied.embedding_fingerprint
+
+    def test_openai_compatible_fingerprint_format_is_unchanged(self) -> None:
+        """Upgrading must never invalidate a fingerprint already persisted in an
+        existing `chroma_db/` for the pre-ADR-22 default provider."""
+        settings = Settings(
+            **settings_kwargs(
+                embedding_provider="openai_compatible", embedding_model="bge-m3"
+            )
+        )
+        assert settings.embedding_fingerprint == "bge-m3"
+
+    def test_onnx_local_fingerprint_includes_provider_and_fixed_dimension(self) -> None:
+        """ADR-23: distinguishes this provider's vectors from the Ollama-served
+        `openai_compatible` bge-m3 path even though both use the "bge-m3" model
+        family, so the two are never mixed in one collection (R-11)."""
+        settings = Settings(
+            **settings_kwargs(
+                embedding_provider="onnx_local", embedding_model="xenova-bge-m3-uint8"
+            )
+        )
+        assert settings.embedding_fingerprint == "onnx_local:xenova-bge-m3-uint8:1024"
 
 
 class TestSecretMasking:
@@ -101,6 +130,25 @@ class TestProviderDescription:
         assert "do-not-leak-me" not in llm.masked_key
         assert "do-not-leak-me" not in embedding.masked_key
 
+    def test_llm_provider_is_always_openai_compatible(self) -> None:
+        """There is no alternate provider kind for the LLM slot."""
+        settings = Settings(**settings_kwargs())
+        llm, _ = describe_providers(settings)
+        assert llm.provider == "openai_compatible"
+
+    def test_onnx_local_provider_is_reported_as_local_with_no_credential(self) -> None:
+        """ADR-23: no network endpoint or credential exists for this provider."""
+        settings = Settings(
+            **settings_kwargs(
+                embedding_provider="onnx_local", embedding_model="xenova-bge-m3-uint8"
+            )
+        )
+        _, embedding = describe_providers(settings)
+        assert embedding.provider == "onnx_local"
+        assert embedding.is_local is True
+        assert embedding.dimension == 1024
+        assert "•" not in embedding.masked_key  # nothing secret-shaped to mask
+
 
 class TestRequireCredentials:
     def test_passes_when_both_credentials_are_set(self) -> None:
@@ -119,6 +167,18 @@ class TestRequireCredentials:
         settings.embedding_api_key = ""
         with pytest.raises(RuntimeError, match="EMBEDDING_API_KEY"):
             require_credentials(settings)
+
+    def test_onnx_local_provider_needs_no_embedding_credential(self) -> None:
+        """`onnx_local` never makes a network call, so a blank `EMBEDDING_API_KEY`
+        must not block startup."""
+        settings = Settings(
+            **settings_kwargs(
+                llm_api_key="key-1",
+                embedding_provider="onnx_local",
+                embedding_api_key="",
+            )
+        )
+        require_credentials(settings)  # must not raise
 
 
 class TestValidation:
@@ -191,14 +251,14 @@ class TestBuildEmbeddingModel:
         """Pins the fix as general, not a `bge-m3` special case."""
         settings = Settings(
             **settings_kwargs(
-                embedding_model="voyage-3",
+                embedding_model="some-custom-model",
                 embedding_api_key="dummy-key",
                 embedding_base_url="http://localhost:9999/v1",
             )
         )
         embed_model = build_embedding_model(settings)
 
-        assert embed_model.model_name == "voyage-3"
+        assert embed_model.model_name == "some-custom-model"
 
     def test_falls_back_to_llm_credentials_when_embedding_settings_are_unset(
         self,
@@ -216,6 +276,54 @@ class TestBuildEmbeddingModel:
         assert isinstance(embed_model, OpenAIEmbedding)
         assert embed_model.api_key == "llm-key"
         assert embed_model.api_base == "http://localhost:9999/v1"
+
+
+class TestBuildOnnxLocalEmbeddingModel:
+    """ADR-23. Exercises the real pinned model (no mocking, matching this suite's
+    preference for a real probe over a network provider): slow relative to the rest of
+    this file (CPU-bound ONNX inference), but this is the only place regressions in
+    pooling/normalization/dimension would show up."""
+
+    def _settings(self, **overrides: object) -> Settings:
+        return Settings(
+            **settings_kwargs(
+                embedding_provider="onnx_local",
+                embedding_model="xenova-bge-m3-uint8",
+                **overrides,
+            )
+        )
+
+    def test_missing_pinned_model_file_raises_a_clear_error(self, tmp_path: Path) -> None:
+        settings = self._settings(embedding_onnx_model_dir=tmp_path)
+        with pytest.raises(RuntimeError, match="missing pinned model file"):
+            build_embedding_model(settings)
+
+    def test_query_embedding_is_1024_dimensional_and_l2_normalized(self) -> None:
+        embed_model = build_embedding_model(self._settings())
+        vector = embed_model.get_query_embedding("what is the refund policy?")
+        assert len(vector) == 1024
+        norm = sum(x * x for x in vector) ** 0.5
+        assert norm == pytest.approx(1.0, abs=1e-4)
+
+    def test_text_and_query_embeddings_use_the_same_model(self) -> None:
+        """No query/passage prefix distinction for bge-m3 (unlike e5-style models):
+        embedding identical text as a query and as a document must be identical."""
+        embed_model = build_embedding_model(self._settings())
+        text = "identical text embedded both ways"
+        assert embed_model.get_query_embedding(text) == embed_model.get_text_embedding(
+            text
+        )
+
+    def test_set_intra_threads_rebuilds_the_session_without_changing_output(self) -> None:
+        """Regression guard for the ingestion script's thermal governor, which calls
+        this mid-run to reduce CPU pressure."""
+        embed_model = build_embedding_model(self._settings())
+        text = "throttle regression check"
+        before = embed_model.get_text_embedding(text)
+        # onnx_local-only method; BaseEmbedding has no static type for it (ADR-23).
+        cast(Any, embed_model).set_intra_threads(1)
+        after = embed_model.get_text_embedding(text)
+        assert before == after
 
 
 class TestEmbeddingBatchSizeAndTimeout:

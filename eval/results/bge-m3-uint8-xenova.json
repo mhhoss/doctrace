@@ -1,21 +1,21 @@
 {
-  "model_key": "multilingual-e5-small",
-  "hf_id": "intfloat/multilingual-e5-small",
+  "model_key": "bge-m3-uint8-xenova",
+  "hf_id": "Xenova/bge-m3 (UINT8 ONNX export, pinned in models/xenova-bge-m3-uint8)",
   "quality": {
     "n_queries": 23,
     "n_answerable": 19,
     "n_out_of_corpus": 4,
-    "top1_accuracy": 0.9473684210526315,
-    "recall_at_5": 0.9473684210526315,
+    "top1_accuracy": 1.0,
+    "recall_at_5": 1.0,
     "accuracy_by_category": {
-      "cross_lingual": 0.8888888888888888,
+      "cross_lingual": 1.0,
       "same_language": 1.0
     },
-    "mean_top1_score_answerable": 0.8409329558673658,
-    "min_top1_score_answerable": 0.7786530256271362,
-    "mean_top1_score_out_of_corpus": 0.8056146800518036,
-    "max_top1_score_out_of_corpus": 0.8256468176841736,
-    "separability_gap": -0.046993792057037354,
+    "mean_top1_score_answerable": 0.6041329706970014,
+    "min_top1_score_answerable": 0.47103777527809143,
+    "mean_top1_score_out_of_corpus": 0.4254258722066879,
+    "max_top1_score_out_of_corpus": 0.4602193534374237,
+    "separability_gap": 0.010818421840667725,
     "per_query": [
       {
         "id": "q01",
@@ -24,7 +24,7 @@
         "expected_doc_ids": [
           "doc-en-pdf-solar-energy"
         ],
-        "top1_score": 0.8804543018341064,
+        "top1_score": 0.6730000376701355,
         "top1_doc": "doc-en-pdf-solar-energy",
         "top5_docs": [
           "doc-en-pdf-solar-energy"
@@ -39,11 +39,11 @@
         "expected_doc_ids": [
           "doc-en-docx-compound-interest"
         ],
-        "top1_score": 0.8840377330780029,
+        "top1_score": 0.6563425064086914,
         "top1_doc": "doc-en-docx-compound-interest",
         "top5_docs": [
           "doc-en-docx-compound-interest",
-          "doc-mixed-pdf-ai-fa"
+          "doc-fa-pdf-coffee"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -55,7 +55,7 @@
         "expected_doc_ids": [
           "doc-en-pdf-solar-energy"
         ],
-        "top1_score": 0.9094024896621704,
+        "top1_score": 0.6852118372917175,
         "top1_doc": "doc-en-pdf-solar-energy",
         "top5_docs": [
           "doc-en-pdf-solar-energy"
@@ -70,11 +70,11 @@
         "expected_doc_ids": [
           "doc-en-docx-compound-interest"
         ],
-        "top1_score": 0.873668909072876,
+        "top1_score": 0.6944478154182434,
         "top1_doc": "doc-en-docx-compound-interest",
         "top5_docs": [
           "doc-en-docx-compound-interest",
-          "doc-en-pdf-solar-energy"
+          "doc-mixed-pdf-ai-fa"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -86,7 +86,7 @@
         "expected_doc_ids": [
           "doc-fa-pdf-coffee"
         ],
-        "top1_score": 0.8614672422409058,
+        "top1_score": 0.6334404945373535,
         "top1_doc": "doc-fa-pdf-coffee",
         "top5_docs": [
           "doc-fa-pdf-coffee"
@@ -101,7 +101,7 @@
         "expected_doc_ids": [
           "doc-fa-docx-bicycle"
         ],
-        "top1_score": 0.883624792098999,
+        "top1_score": 0.6385064125061035,
         "top1_doc": "doc-fa-docx-bicycle",
         "top5_docs": [
           "doc-fa-docx-bicycle"
@@ -116,7 +116,7 @@
         "expected_doc_ids": [
           "doc-fa-pdf-coffee"
         ],
-        "top1_score": 0.8719672560691833,
+        "top1_score": 0.6266332268714905,
         "top1_doc": "doc-fa-pdf-coffee",
         "top5_docs": [
           "doc-fa-pdf-coffee"
@@ -131,7 +131,7 @@
         "expected_doc_ids": [
           "doc-fa-docx-bicycle"
         ],
-        "top1_score": 0.8696321249008179,
+        "top1_score": 0.681678831577301,
         "top1_doc": "doc-fa-docx-bicycle",
         "top5_docs": [
           "doc-fa-docx-bicycle"
@@ -146,7 +146,7 @@
         "expected_doc_ids": [
           "doc-en-pdf-solar-energy"
         ],
-        "top1_score": 0.8159133195877075,
+        "top1_score": 0.6830559968948364,
         "top1_doc": "doc-en-pdf-solar-energy",
         "top5_docs": [
           "doc-en-pdf-solar-energy"
@@ -161,7 +161,7 @@
         "expected_doc_ids": [
           "doc-fa-pdf-coffee"
         ],
-        "top1_score": 0.8035036325454712,
+        "top1_score": 0.5833867788314819,
         "top1_doc": "doc-fa-pdf-coffee",
         "top5_docs": [
           "doc-fa-pdf-coffee"
@@ -176,14 +176,14 @@
         "expected_doc_ids": [
           "doc-en-docx-compound-interest"
         ],
-        "top1_score": 0.8032951354980469,
-        "top1_doc": "doc-mixed-pdf-ai-fa",
+        "top1_score": 0.47103777527809143,
+        "top1_doc": "doc-en-docx-compound-interest",
         "top5_docs": [
-          "doc-mixed-pdf-ai-fa",
-          "doc-fa-docx-bicycle"
+          "doc-en-docx-compound-interest",
+          "doc-en-pdf-solar-energy"
         ],
-        "top1_correct": false,
-        "recall_at_5": false
+        "top1_correct": true,
+        "recall_at_5": true
       },
       {
         "id": "q12",
@@ -192,11 +192,10 @@
         "expected_doc_ids": [
           "doc-fa-docx-bicycle"
         ],
-        "top1_score": 0.7930620908737183,
+        "top1_score": 0.5437439680099487,
         "top1_doc": "doc-fa-docx-bicycle",
         "top5_docs": [
-          "doc-fa-docx-bicycle",
-          "doc-mixed-docx-persian-language-en"
+          "doc-fa-docx-bicycle"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -208,7 +207,7 @@
         "expected_doc_ids": [
           "doc-mixed-pdf-ai-fa"
         ],
-        "top1_score": 0.8585830330848694,
+        "top1_score": 0.5766934156417847,
         "top1_doc": "doc-mixed-pdf-ai-fa",
         "top5_docs": [
           "doc-mixed-pdf-ai-fa"
@@ -223,7 +222,7 @@
         "expected_doc_ids": [
           "doc-mixed-docx-persian-language-en"
         ],
-        "top1_score": 0.8950917720794678,
+        "top1_score": 0.6824086308479309,
         "top1_doc": "doc-mixed-docx-persian-language-en",
         "top5_docs": [
           "doc-mixed-docx-persian-language-en"
@@ -238,11 +237,11 @@
         "expected_doc_ids": [
           "doc-mixed-pdf-ai-fa"
         ],
-        "top1_score": 0.7786530256271362,
+        "top1_score": 0.4738406538963318,
         "top1_doc": "doc-mixed-pdf-ai-fa",
         "top5_docs": [
           "doc-mixed-pdf-ai-fa",
-          "doc-en-pdf-solar-energy"
+          "doc-en-docx-compound-interest"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -254,7 +253,7 @@
         "expected_doc_ids": [
           "doc-mixed-docx-persian-language-en"
         ],
-        "top1_score": 0.8122566938400269,
+        "top1_score": 0.5156976580619812,
         "top1_doc": "doc-mixed-docx-persian-language-en",
         "top5_docs": [
           "doc-mixed-docx-persian-language-en"
@@ -269,11 +268,10 @@
         "expected_doc_ids": [
           "doc-mixed-pdf-ai-fa"
         ],
-        "top1_score": 0.7796498537063599,
+        "top1_score": 0.5325432419776917,
         "top1_doc": "doc-mixed-pdf-ai-fa",
         "top5_docs": [
-          "doc-mixed-pdf-ai-fa",
-          "doc-en-docx-compound-interest"
+          "doc-mixed-pdf-ai-fa"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -285,11 +283,10 @@
         "expected_doc_ids": [
           "doc-mixed-docx-persian-language-en"
         ],
-        "top1_score": 0.7973636984825134,
+        "top1_score": 0.5664297342300415,
         "top1_doc": "doc-mixed-docx-persian-language-en",
         "top5_docs": [
-          "doc-mixed-docx-persian-language-en",
-          "doc-mixed-pdf-ai-fa"
+          "doc-mixed-docx-persian-language-en"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -301,11 +298,10 @@
         "expected_doc_ids": [
           "doc-fa-pdf-coffee"
         ],
-        "top1_score": 0.8060990571975708,
+        "top1_score": 0.5604274272918701,
         "top1_doc": "doc-fa-pdf-coffee",
         "top5_docs": [
-          "doc-fa-pdf-coffee",
-          "doc-en-pdf-solar-energy"
+          "doc-fa-pdf-coffee"
         ],
         "top1_correct": true,
         "recall_at_5": true
@@ -315,7 +311,7 @@
         "language": "en",
         "category": "out_of_corpus",
         "expected_doc_ids": [],
-        "top1_score": 0.7975197434425354,
+        "top1_score": 0.4602193534374237,
         "top1_doc": "doc-fa-docx-bicycle",
         "top5_docs": [
           "doc-fa-docx-bicycle",
@@ -327,11 +323,11 @@
         "language": "fa",
         "category": "out_of_corpus",
         "expected_doc_ids": [],
-        "top1_score": 0.801709771156311,
+        "top1_score": 0.42167139053344727,
         "top1_doc": "doc-mixed-pdf-ai-fa",
         "top5_docs": [
           "doc-mixed-pdf-ai-fa",
-          "doc-fa-pdf-coffee"
+          "doc-mixed-docx-persian-language-en"
         ]
       },
       {
@@ -339,11 +335,12 @@
         "language": "en",
         "category": "out_of_corpus",
         "expected_doc_ids": [],
-        "top1_score": 0.7975823879241943,
-        "top1_doc": "doc-en-docx-compound-interest",
+        "top1_score": 0.37879806756973267,
+        "top1_doc": "doc-mixed-pdf-ai-fa",
         "top5_docs": [
+          "doc-mixed-pdf-ai-fa",
           "doc-en-docx-compound-interest",
-          "doc-mixed-pdf-ai-fa"
+          "doc-mixed-docx-persian-language-en"
         ]
       },
       {
@@ -351,7 +348,7 @@
         "language": "fa",
         "category": "out_of_corpus",
         "expected_doc_ids": [],
-        "top1_score": 0.8256468176841736,
+        "top1_score": 0.44101467728614807,
         "top1_doc": "doc-fa-pdf-coffee",
         "top5_docs": [
           "doc-fa-pdf-coffee"
@@ -361,12 +358,12 @@
   },
   "performance": {
     "n_chunks": 45,
-    "ingestion_wall_seconds": 13.293907687009778,
-    "ingestion_cpu_seconds": 42.086942232999945,
-    "ms_per_chunk_wall": 295.4201708224395,
-    "chunks_per_sec": 3.385009213203129,
+    "ingestion_wall_seconds": 105.56443666201085,
+    "ingestion_cpu_seconds": 317.92735749400003,
+    "ms_per_chunk_wall": 2345.876370266908,
+    "chunks_per_sec": 0.42627992364585804,
     "n_queries": 23,
-    "query_wall_seconds": 0.4753206620225683,
-    "ms_per_query_wall": 20.666115740111664
+    "query_wall_seconds": 2.4857319830043707,
+    "ms_per_query_wall": 108.07530360888569
   }
 }

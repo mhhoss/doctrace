@@ -1528,11 +1528,13 @@ dependencies = [
     { name = "llama-index-embeddings-openai" },
     { name = "llama-index-llms-openai" },
     { name = "llama-index-vector-stores-chroma" },
+    { name = "onnxruntime" },
     { name = "pydantic-settings" },
     { name = "pyright" },
     { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "streamlit" },
+    { name = "tokenizers" },
     { name = "uvicorn" },
 ]
 
@@ -1551,11 +1553,13 @@ requires-dist = [
     { name = "llama-index-embeddings-openai", specifier = ">=0.6.0" },
     { name = "llama-index-llms-openai", specifier = ">=0.7.10" },
     { name = "llama-index-vector-stores-chroma", specifier = ">=0.5.5" },
+    { name = "onnxruntime", specifier = ">=1.28.0" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyright", specifier = ">=1.1.411" },
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "streamlit", specifier = ">=1.61.1" },
+    { name = "tokenizers", specifier = ">=0.23.1" },
     { name = "uvicorn", specifier = ">=0.52.3" },
 ]
 

@@ -1,12 +1,19 @@
-"""Offline embedding-model benchmark: bge-m3 vs multilingual-e5-small vs multilingual-e5-base.
+"""Offline embedding-model benchmark: bge-m3 (fp32 and the pinned UINT8 quantized
+export) vs multilingual-e5-small vs multilingual-e5-base.
 
 Runs fully offline (no network, no downloads) and sequentially — one model loaded,
 benchmarked, and released before the next starts. Reuses the app's own document
 parsing and chunking (`app.documents.loader`, `app.documents.processor`) so the
 benchmark measures the same chunks production would index, and embeds via ONNX
 Runtime + `tokenizers` only (no torch/sentence-transformers), matching what a
-bundled deployment would ship. Model weights are read from a local, already-exported
-ONNX cache; nothing is downloaded here.
+bundled deployment would ship. Model weights are read from local, already-exported
+ONNX caches; nothing is downloaded here.
+
+The `bge-m3-uint8-xenova` spec reads the repo's own pinned artifact
+(`models/xenova-bge-m3-uint8/`, see its `manifest.json`) — always present after
+setup. The other specs read an external ONNX export cache that only exists on the
+machine this benchmark was originally run on; each is skipped with a warning, not a
+crash, when its cache directory is absent (e.g. on a fresh clone).
 
 This script does not modify production code; it only reads it (loader/processor) and
 writes benchmark artifacts under eval/results/.
@@ -21,6 +28,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import onnxruntime as ort
@@ -29,8 +37,8 @@ from tokenizers import Tokenizer
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from app.documents.loader import load  # noqa: E402
-from app.documents.processor import process_document  # noqa: E402
+from app.documents.loader import load
+from app.documents.processor import process_document
 
 EVAL_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = EVAL_DIR / "corpus"
@@ -43,13 +51,18 @@ CHUNK_SIZE = 1024
 CHUNK_OVERLAP = 128
 TOP_K = 5
 
+# External export cache — only present on the machine this was first run on.
 ONNX_MODELS_ROOT = Path(
     "/run/media/mhhoss/0C2EFC0D2EFBED98/veign-workspace/pka-bench/models"
 )
+# The project's own pinned artifact — always present after setup (ADR-23).
+PINNED_MODELS_ROOT = REPO_ROOT / "models"
 
 
-def _snapshot(model_dir: str) -> Path:
+def _external_snapshot(model_dir: str) -> Path | None:
     root = ONNX_MODELS_ROOT / model_dir / "snapshots"
+    if not root.is_dir():
+        return None
     return next(root.iterdir())
 
 
@@ -57,40 +70,63 @@ def _snapshot(model_dir: str) -> Path:
 class ModelSpec:
     key: str
     hf_id: str
-    onnx_path: Path
-    tokenizer_path: Path
+    onnx_path: Path | None
+    tokenizer_path: Path | None
     pooling: str  # "mean" | "cls"
     query_prefix: str
     passage_prefix: str
 
+    @property
+    def available(self) -> bool:
+        return (
+            self.onnx_path is not None
+            and self.onnx_path.is_file()
+            and self.tokenizer_path is not None
+            and self.tokenizer_path.is_file()
+        )
+
+
+def _external_spec(
+    key: str, hf_id: str, repo_dir: str, *, pooling: str, prefix: bool
+) -> ModelSpec:
+    snapshot = _external_snapshot(repo_dir)
+    return ModelSpec(
+        key=key,
+        hf_id=hf_id,
+        onnx_path=snapshot / "onnx" / "model.onnx" if snapshot else None,
+        tokenizer_path=snapshot / "tokenizer.json" if snapshot else None,
+        pooling=pooling,
+        query_prefix="query: " if prefix else "",
+        passage_prefix="passage: " if prefix else "",
+    )
+
 
 MODEL_SPECS = [
+    _external_spec(
+        "bge-m3", "BAAI/bge-m3", "models--BAAI--bge-m3", pooling="cls", prefix=False
+    ),
     ModelSpec(
-        key="bge-m3",
-        hf_id="BAAI/bge-m3",
-        onnx_path=_snapshot("models--BAAI--bge-m3") / "onnx" / "model.onnx",
-        tokenizer_path=_snapshot("models--BAAI--bge-m3") / "tokenizer.json",
+        key="bge-m3-uint8-xenova",
+        hf_id="Xenova/bge-m3 (UINT8 ONNX export, pinned in models/xenova-bge-m3-uint8)",
+        onnx_path=PINNED_MODELS_ROOT / "xenova-bge-m3-uint8" / "model_uint8.onnx",
+        tokenizer_path=PINNED_MODELS_ROOT / "xenova-bge-m3-uint8" / "tokenizer.json",
         pooling="cls",
         query_prefix="",
         passage_prefix="",
     ),
-    ModelSpec(
-        key="multilingual-e5-small",
-        hf_id="intfloat/multilingual-e5-small",
-        onnx_path=_snapshot("models--intfloat--multilingual-e5-small") / "onnx" / "model.onnx",
-        tokenizer_path=_snapshot("models--intfloat--multilingual-e5-small") / "tokenizer.json",
+    _external_spec(
+        "multilingual-e5-small",
+        "intfloat/multilingual-e5-small",
+        "models--intfloat--multilingual-e5-small",
         pooling="mean",
-        query_prefix="query: ",
-        passage_prefix="passage: ",
+        prefix=True,
     ),
-    ModelSpec(
-        key="multilingual-e5-base",
-        hf_id="intfloat/multilingual-e5-base",
-        onnx_path=_snapshot("models--intfloat--multilingual-e5-base") / "onnx" / "model.onnx",
-        tokenizer_path=_snapshot("models--intfloat--multilingual-e5-base") / "tokenizer.json",
+    _external_spec(
+        "multilingual-e5-base",
+        "intfloat/multilingual-e5-base",
+        "models--intfloat--multilingual-e5-base",
         pooling="mean",
-        query_prefix="query: ",
-        passage_prefix="passage: ",
+        prefix=True,
     ),
 ]
 
@@ -123,7 +159,7 @@ class OnnxEmbedder:
         if "token_type_ids" in self.input_names:
             feeds["token_type_ids"] = np.zeros_like(ids)
         feeds = {k: v for k, v in feeds.items() if k in self.input_names}
-        out = self.sess.run(None, feeds)[0]
+        out = cast(np.ndarray, self.sess.run(None, feeds)[0])  # dense, never sparse
         if self.spec.pooling == "cls":
             vec = out[:, 0, :]
         else:
@@ -244,7 +280,7 @@ def run_model(spec: ModelSpec, texts: list[str], meta: list[dict], queries: list
     query_texts = [q["query"] for q in queries]
 
     doc_vecs, doc_wall, doc_cpu = embedder.embed(texts, is_query=False, batch_size=8)
-    query_vecs, q_wall, q_cpu = embedder.embed(query_texts, is_query=True, batch_size=8)
+    query_vecs, q_wall, _q_cpu = embedder.embed(query_texts, is_query=True, batch_size=8)
 
     quality = evaluate(doc_vecs, meta, query_vecs, queries)
 
@@ -284,6 +320,9 @@ def main() -> None:
 
     all_results = []
     for spec in MODEL_SPECS:
+        if not spec.available:
+            print(f"\n=== {spec.key} ({spec.hf_id}) === SKIPPED: model files not found")
+            continue
         result = run_model(spec, texts, meta, queries)
         all_results.append(result)
         (RESULTS_DIR / f"{spec.key}.json").write_text(

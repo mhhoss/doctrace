@@ -545,6 +545,50 @@ measured one. Open question 2's sweep found no correctness difference across
 safe there, but `RETRIEVAL_MIN_SCORE`'s own threshold was measured at `top_k=5` —
 re-measure both together before treating either as final.
 
+**ADR-21 — Duplicate-content detection (ADR-3) is checked immediately after `load()`,
+before `process_document`, not only inside `index_document`.** Prompted by ingesting a
+real large Persian corpus on CPU-served `bge-m3` (2026-08-24): embedding is ~6.3-6.6s/
+chunk (ADR-19's measurement), so a multi-hundred-KB document takes well over an hour,
+while `normalize_text` + `chunk_text` + the pathological-text scan together measured
+under 0.7s for a 647k-character real document from that corpus — normalization/
+chunking was never the bottleneck, but re-running it on every duplicate re-upload of a
+large file was still pure waste. `store.document_exists` is a single filtered,
+`limit=1` Chroma lookup (no measurable cost). `engine.ingest_file` now calls the new
+`indexer.check_already_indexed` right after `load()`; `index_document` still performs
+the same check itself, so this is purely an optimization; no outcome, status, or API
+response changes. Does not address the embedding-bound cost itself — no config change
+here — since ADR-13/ADR-19 already tuned `EMBEDDING_BATCH_SIZE`/timeout as tightly as
+is safe against a slow CPU backend without risking the timeout failure they were
+introduced to prevent; raising it further, or making a large file's embedding loop
+cancellable mid-file, would both require weakening a documented invariant (ADR-7's
+per-file all-or-nothing compensation, and the "nothing reaches the store until a file
+is fully embedded" guarantee ADR-17 relies on for safe process restarts) and were
+deliberately left alone rather than changed under this review.
+
+**ADR-22 — Voyage AI as a hosted embedding provider — removed.** Added to test a
+hosted alternative to the CPU-bound local `bge-m3` path, then removed: no real
+deployment used it, and a hosted US embedding API is not a realistic path for this
+project's actual users. Its dedicated `httpx` client, `VOYAGE_EMBEDDING_API_KEY`, and
+`embedding_dimension` setting are gone from `config.py`; `embedding_provider` is now
+`Literal["openai_compatible", "onnx_local"]`.
+
+**ADR-23 — `onnx_local`, a third `embedding_provider`, loads a pinned ONNX model
+directly instead of calling an HTTP endpoint.** Motivation: a fully offline embedding
+path with zero external network dependency, for deployments where that matters more
+than raw throughput. Model artifact (`Xenova/bge-m3`, UINT8-quantized) is pinned under
+`models/xenova-bge-m3-uint8/` with a checksummed `manifest.json` recording provenance
+— production never depends on the ambient HF cache or a future upstream change to that
+repo. Pooling/normalization (CLS-token, L2) match `eval/run_benchmark.py`'s
+`OnnxEmbedder` exactly, so the two stay comparable. `embedding_fingerprint` gets a
+distinguishing `onnx_local:{model}:1024` shape (ADR-8) — this and the Ollama-served
+`openai_compatible` `bge-m3` path are different, non-interchangeable embedding
+configurations even though both trace back to the same model family; a customer
+picks one via `CHROMA_COLLECTION`, never both in one collection. Benchmarked
+2026-08-25 (`eval/BENCHMARK_RESULTS.md` addendum): identical accuracy/recall to fp32
+bge-m3, ~24% faster ingestion, ~37% faster query — but roughly half the separability
+gap (0.011 vs 0.024), so `RETRIEVAL_MIN_SCORE` should be re-measured, not assumed,
+before this provider is treated as a drop-in for the existing threshold at scale.
+
 ## Performance
 
 Scale evaluation (2026-08-18) against the current production setup: poppler PDF
