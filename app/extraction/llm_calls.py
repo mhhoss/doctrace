@@ -22,6 +22,8 @@ _EXTRACTION_PROMPT = PromptTemplate(
     "section — not summaries, not interpretations, only what the text actually "
     "states. For each one, give a short self-contained statement and a verbatim "
     "quote (copied exactly, not paraphrased) from the section text that supports it. "
+    "Write the statement in the SAME language as the section text below — never "
+    "translate it, even if you would naturally respond in a different language. "
     "If the section states nothing extractable, return an empty list.\n\n"
     "Section{label_suffix}:\n{section_text}"
 )

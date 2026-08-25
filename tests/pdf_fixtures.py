@@ -101,24 +101,38 @@ def build_pdf(
 
 
 def _content_stream(text: str, code_of: dict[str, int], *, visual_order: bool) -> bytes:
-    """One `Tj` per word, each preceded by a rightward `Td` advance.
+    """One `Tj` per word, each preceded by a rightward `Td` advance; one `BT`/`ET`
+    block per input line, each starting at a fresh, lower `y` position.
 
-    This is how real layout engines place a line of text at the PDF-content-stream
-    level: each word is its own showing operator, positioned left to right by whatever
-    order the producer hands them over.
+    This is how real layout engines place text at the PDF-content-stream level: each
+    word is its own showing operator, positioned left to right by whatever order the
+    producer hands them over, and each line starts its own text object at an absolute
+    position rather than accumulating a running offset — so `pdftotext -layout` sees
+    real line breaks (needed for anything beyond a single short sentence, e.g. a
+    multi-line/multi-paragraph page), not one line of text stretching arbitrarily far
+    right.
     """
-    ops = [b"BT /F1 24 Tf 72 720 Td"]
-    for word in text.split(" "):
-        glyphs = _visual_order(word) if visual_order else word
-        codes = [code_of[char] for char in glyphs]
-        hex_codes = "".join(f"{code:04X}" for code in codes)
-        ops.append(f"<{hex_codes}> Tj".encode("ascii"))
-        # Advance well past this word's own width (no /Widths array is defined, so
-        # readers fall back to generous default glyph widths) plus a clear gap, so
-        # layout-mode extraction reliably sees a word boundary.
-        advance = max(400, 60 * len(word) + 250)
-        ops.append(b"%d 0 Td" % advance)
-    ops.append(b"ET")
+    ops: list[bytes] = []
+    y = 720
+    for line in text.split("\n"):
+        if not line.strip():
+            y -= 40
+            continue
+        ops.append(b"BT /F1 24 Tf 72 %d Td" % y)
+        for word in line.split(" "):
+            if not word:
+                continue
+            glyphs = _visual_order(word) if visual_order else word
+            codes = [code_of[char] for char in glyphs]
+            hex_codes = "".join(f"{code:04X}" for code in codes)
+            ops.append(f"<{hex_codes}> Tj".encode("ascii"))
+            # Advance well past this word's own width (no /Widths array is defined,
+            # so readers fall back to generous default glyph widths) plus a clear
+            # gap, so layout-mode extraction reliably sees a word boundary.
+            advance = max(400, 60 * len(word) + 250)
+            ops.append(b"%d 0 Td" % advance)
+        ops.append(b"ET")
+        y -= 40
     return b"\n".join(ops)
 
 

@@ -1,0 +1,499 @@
+{
+  "run_tag": "2026-08-25",
+  "llm_model": "openai/gpt-4o-mini",
+  "llm_base_url": "https://openrouter.ai/api/v1",
+  "metrics": {
+    "n_ground_truth": 35,
+    "n_matched": 26,
+    "n_unmatched_ground_truth": 9,
+    "n_unmatched_extracted": 9,
+    "recall": 0.7428571428571429,
+    "precision": 0.7428571428571429,
+    "category_accuracy": 0.5769230769230769,
+    "citation_accuracy": 1.0,
+    "citation_accuracy_n": 14,
+    "verification_rate": 1.0
+  },
+  "per_document_timing_seconds": {
+    "doc-en-pdf-service-agreement": 33.57,
+    "doc-fa-pdf-tender": 27.53,
+    "doc-mixed-docx-it-project": 9.93,
+    "doc-en-docx-data-policy": 11.54
+  },
+  "matches": [
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Contractor must deliver a monthly status report no later than the fifth business day of each month.",
+      "ground_truth_page": 1,
+      "extracted_text": "The Contractor must deliver a monthly status report no later than the fifth business day of each month.",
+      "extracted_category": "requirement",
+      "extracted_page_start": 1,
+      "extracted_page_end": 1,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Contractor shall complete the initial system audit within 30 days of the Effective Date.",
+      "ground_truth_page": 1,
+      "extracted_text": "The Contractor shall complete the initial system audit within 30 days of the Effective Date.",
+      "extracted_category": "deadline",
+      "extracted_page_start": 1,
+      "extracted_page_end": 1,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Client shall pay all undisputed invoices within 15 days of receipt.",
+      "ground_truth_page": 1,
+      "extracted_text": "The Client shall pay all undisputed invoices within 15 days of receipt.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 1,
+      "extracted_page_end": 1,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "Late payments shall accrue interest at a rate of 1.5% per month.",
+      "ground_truth_page": 1,
+      "extracted_text": "Late payments shall accrue interest at a rate of 1.5% per month.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 1,
+      "extracted_page_end": 1,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "Each party shall keep the other party's Confidential Information strictly confidential.",
+      "ground_truth_page": 2,
+      "extracted_text": "Each party shall keep the other party's Confidential Information strictly confidential.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 2,
+      "extracted_page_end": 2,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "Neither party shall disclose Confidential Information to any third party without prior written consent.",
+      "ground_truth_page": 2,
+      "extracted_text": "Neither party shall disclose Confidential Information to any third party without prior written consent.",
+      "extracted_category": "prohibition",
+      "extracted_page_start": 2,
+      "extracted_page_end": 2,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "Either party may terminate this Agreement with 60 days' written notice.",
+      "ground_truth_page": 2,
+      "extracted_text": "Either party may terminate this Agreement with 60 days' written notice.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 2,
+      "extracted_page_end": 2,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Client may terminate immediately upon a material breach that remains uncured for 10 days after notice.",
+      "ground_truth_page": 2,
+      "extracted_text": "The Client may terminate immediately upon a material breach that remains uncured for 10 days after notice.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 2,
+      "extracted_page_end": 2,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "Neither party shall be liable for indirect or consequential damages.",
+      "ground_truth_page": 2,
+      "extracted_text": "Neither party shall be liable for indirect or consequential damages.",
+      "extracted_category": "prohibition",
+      "extracted_page_start": 2,
+      "extracted_page_end": 2,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Contractor's total liability shall not exceed the fees paid in the preceding six months.",
+      "ground_truth_page": 2,
+      "extracted_text": "The Contractor's total liability shall not exceed the fees paid in the preceding six months.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 2,
+      "extracted_page_end": 2,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Contractor warrants that all services will be performed in a professional and workmanlike manner.",
+      "ground_truth_page": 3,
+      "extracted_text": "The Contractor warrants that all services will be performed in a professional and workmanlike manner.",
+      "extracted_category": "obligation",
+      "extracted_page_start": 3,
+      "extracted_page_end": 3,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "This Agreement shall be governed by the laws of the jurisdiction in which the Client is incorporated.",
+      "ground_truth_page": 3,
+      "extracted_text": "This Agreement shall be governed by the laws of the jurisdiction in which the Client is incorporated.",
+      "extracted_category": "requirement",
+      "extracted_page_start": 3,
+      "extracted_page_end": 3,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "ground_truth_text": "The Contractor shall not assign this Agreement without the Client's prior written consent.",
+      "ground_truth_page": 3,
+      "extracted_text": "The Contractor shall not assign this Agreement without the Client's prior written consent.",
+      "extracted_category": "prohibition",
+      "extracted_page_start": 3,
+      "extracted_page_end": 3,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "ground_truth_text": "«مدت قرارداد» به معنای بازه زمانی از تاریخ ابلاغ تا تحویل قطعی است.",
+      "ground_truth_page": 3,
+      "extracted_text": "مدت قرارداد به معنای بازه زمانی از تاریخ ابلاغ تا تحویل قطعی است.",
+      "extracted_category": "definition",
+      "extracted_page_start": 3,
+      "extracted_page_end": 3,
+      "similarity": 0.985,
+      "category_correct": true,
+      "page_correct": true,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "ground_truth_text": "پیمانکار موظف است محیط Staging را ظرف دو هفته از شروع پروژه راه‌اندازی کند.",
+      "ground_truth_page": null,
+      "extracted_text": "پیمانکار موظف است محیط Staging را ظرف دو هفته از شروع پروژه راه‌اندازی کند.",
+      "extracted_category": "obligation",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "ground_truth_text": "پیمانکار باید مستندات Deployment را به زبان فارسی و انگلیسی تحویل دهد.",
+      "ground_truth_page": null,
+      "extracted_text": "پیمانکار باید مستندات Deployment را به زبان فارسی و انگلیسی تحویل دهد.",
+      "extracted_category": "requirement",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "ground_truth_text": "کارفرما موظف است دسترسی به سرورهای Production را ظرف پنج روز کاری فراهم کند.",
+      "ground_truth_page": null,
+      "extracted_text": "کارفرما موظف است دسترسی به سرورهای Production را ظرف پنج روز کاری فراهم کند.",
+      "extracted_category": "obligation",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "ground_truth_text": "پیمانکار حق ندارد بدون اجازه کارفرما اطلاعات پیکربندی را با اشخاص ثالث به اشتراک بگذارد.",
+      "ground_truth_page": null,
+      "extracted_text": "پیمانکار حق ندارد بدون اجازه کارفرما اطلاعات پیکربندی را با اشخاص ثالث به اشتراک بگذارد.",
+      "extracted_category": "prohibition",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "ground_truth_text": "در صورت بروز Downtime بیش از یک ساعت، پیمانکار موظف به ارائه گزارش علت و راه‌حل ظرف ۲۴ ساعت است.",
+      "ground_truth_page": null,
+      "extracted_text": "در صورت بروز Downtime بیش از یک ساعت، پیمانکار موظف به ارائه گزارش علت و راه‌حل ظرف ۲۴ ساعت است.",
+      "extracted_category": "obligation",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "Employees must complete data protection training within 30 days of joining.",
+      "ground_truth_page": null,
+      "extracted_text": "Employees must complete data protection training within 30 days of joining.",
+      "extracted_category": "obligation",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "Personal data shall not be stored on unencrypted portable devices.",
+      "ground_truth_page": null,
+      "extracted_text": "Personal data shall not be stored on unencrypted portable devices.",
+      "extracted_category": "prohibition",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "\"Personal Data\" means any information relating to an identified or identifiable individual.",
+      "ground_truth_page": null,
+      "extracted_text": "\"Personal Data\" means any information relating to an identified or identifiable individual.",
+      "extracted_category": "definition",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "Any data breach must be reported to the Data Protection Officer within 24 hours of discovery.",
+      "ground_truth_page": null,
+      "extracted_text": "Any data breach must be reported to the Data Protection Officer within 24 hours of discovery.",
+      "extracted_category": "requirement",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": false,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "Employees are prohibited from sharing login credentials with any other person.",
+      "ground_truth_page": null,
+      "extracted_text": "Employees are prohibited from sharing login credentials with any other person.",
+      "extracted_category": "prohibition",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "Access to customer records shall be limited to employees with a documented business need.",
+      "ground_truth_page": null,
+      "extracted_text": "Access to customer records shall be limited to employees with a documented business need.",
+      "extracted_category": "requirement",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "ground_truth_text": "Backup copies of production data must be retained for a minimum of 90 days.",
+      "ground_truth_page": null,
+      "extracted_text": "Backup copies of production data must be retained for a minimum of 90 days.",
+      "extracted_category": "requirement",
+      "extracted_page_start": null,
+      "extracted_page_end": null,
+      "similarity": 1.0,
+      "category_correct": true,
+      "page_correct": null,
+      "verification_status": "verified"
+    }
+  ],
+  "unmatched_ground_truth": [
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "text": "\"Confidential Information\" means any non-public information disclosed by either party in connection with this Agreement.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "پیمانکار موظف است کار را ظرف نود روز از تاریخ ابلاغ قرارداد تکمیل نماید.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "پیمانکار باید ضمانت‌نامه انجام تعهدات به میزان ده درصد مبلغ قرارداد ارائه دهد.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "کارفرما موظف است پیش‌پرداخت را ظرف پانزده روز از امضای قرارداد واریز نماید.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "پیمانکار حق واگذاری قرارداد به شخص ثالث را بدون موافقت کتبی کارفرما ندارد.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "در صورت تاخیر در تحویل، جریمه‌ای معادل نیم درصد مبلغ قرارداد به ازای هر روز تاخیر اعمال می‌شود.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "پیمانکار موظف است گزارش پیشرفت کار را هر ماه به کارفرما ارائه دهد.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "پیمانکار باید کلیه پرسنل خود را بیمه نماید.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "کارفرما می‌تواند در صورت تخلف پیمانکار، قرارداد را فسخ نماید.",
+      "page": 3
+    }
+  ],
+  "unmatched_extracted": [
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "text": "The Contractor shall provide software maintenance services.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The contractor is obliged to complete the work within ninety days from the date of notification of the contract.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The contractor must provide a guarantee for the fulfillment of obligations amounting to ten percent of the contract value.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The employer is obliged to deposit the advance payment within fifteen days of signing the contract.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "A penalty of half a percent of the contract amount will be applied for each day of delay in delivery.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The contractor is obliged to submit a progress report to the employer every month.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The contractor must insure all of its personnel.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The employer can terminate the contract in case of contractor's breach.",
+      "category": "obligation"
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "text": "The contractor does not have the right to assign the contract to a third party without the written consent of the employer.",
+      "category": "prohibition"
+    }
+  ],
+  "outcomes": [
+    {
+      "document_id": "doc-en-pdf-service-agreement",
+      "filename": "doc-en-pdf-service-agreement.pdf",
+      "status": "succeeded",
+      "sections_total": 8,
+      "sections_succeeded": 8,
+      "sections_failed": 0,
+      "item_count": 14,
+      "section_errors": []
+    },
+    {
+      "document_id": "doc-fa-pdf-tender",
+      "filename": "doc-fa-pdf-tender.pdf",
+      "status": "succeeded",
+      "sections_total": 9,
+      "sections_succeeded": 9,
+      "sections_failed": 0,
+      "item_count": 9,
+      "section_errors": []
+    },
+    {
+      "document_id": "doc-mixed-docx-it-project",
+      "filename": "doc-mixed-docx-it-project.docx",
+      "status": "succeeded",
+      "sections_total": 1,
+      "sections_succeeded": 1,
+      "sections_failed": 0,
+      "item_count": 5,
+      "section_errors": []
+    },
+    {
+      "document_id": "doc-en-docx-data-policy",
+      "filename": "doc-en-docx-data-policy.docx",
+      "status": "succeeded",
+      "sections_total": 1,
+      "sections_succeeded": 1,
+      "sections_failed": 0,
+      "item_count": 7,
+      "section_errors": []
+    }
+  ]
+}

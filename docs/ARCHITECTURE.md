@@ -696,6 +696,37 @@ slow/costly to run on every health poll). `MAX_UPLOAD_MB` (default 50) caps
 `POST /documents`, which previously buffered an unbounded request body into memory
 before doing anything else with it.
 
+**ADR-27 — Extraction quality is measured against a hand-labeled corpus
+(`eval/extraction_corpus/`, `eval/run_extraction_eval.py`), not assumed from the
+pipeline running without errors.** Reused `eval/run_benchmark.py`'s established
+conventions (`--run-tag`-scoped output, a written-up `.md` article) rather than
+inventing a new pattern. The existing `eval/corpus/` (Wikipedia-style prose) has
+nothing extractable in it and could not be reused; a new corpus of 4 synthetic,
+disclosed, clause-structured documents (35 hand-labeled ground-truth items) was
+authored instead — see `eval/EXTRACTION_BENCHMARK.md` for full methodology,
+provenance, and results.
+
+The first real run (2026-08-25) measured 74.3% recall — diagnosis (not another
+guess-and-check cycle) traced nearly all of the loss to one concentrated cause: the
+extraction prompt never instructed the model to preserve the source document's
+language, so Persian clauses were silently translated to English and became
+unmatchable against Persian ground truth. One line added to
+`llm_calls.py`'s `_EXTRACTION_PROMPT` ("write the statement in the SAME language as
+the section text... never translate it"), and a full re-run measured 91.4% recall,
+97.0% precision, with **citation accuracy at 100% (20/20) on both runs** — the
+pipeline's core product claim (every item traceable to a real page) held throughout;
+what moved was recall/precision, and it moved because of a diagnosed, fixed,
+re-verified prompt gap, not a pipeline redesign. Full before/after numbers and the
+diagnosis are in `eval/EXTRACTION_BENCHMARK.md` §3–5, not just the improved run —
+the first run and its diagnosis are part of the evidence.
+
+The same real run also produced the first observed case of a section failing against
+a real provider (not an injected test exception): the model returned a category value
+outside the fixed five-category enum, `structured_predict`'s validation rejected it,
+and per-section isolation (ADR-25's design) correctly marked only that one section
+failed while the rest of the document completed normally — confirming the isolation
+design under a real failure, not only a unit test.
+
 ## Performance
 
 Scale evaluation (2026-08-18) against the current production setup: poppler PDF

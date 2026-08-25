@@ -1,0 +1,218 @@
+{
+  "authored_by": "Mahdi Hosseini, by reading the actual corpus text in this directory and listing every discrete obligation/requirement/deadline/prohibition/definition it states. No automated tool produced this file. Matching against extraction output uses text similarity, not exact string equality (see eval/run_extraction_eval.py) — 'text' below is what an ideal extraction should convey, not a required verbatim quote.",
+  "items": [
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "deadline",
+      "text": "The Contractor must deliver a monthly status report no later than the fifth business day of each month.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "deadline",
+      "text": "The Contractor shall complete the initial system audit within 30 days of the Effective Date.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "deadline",
+      "text": "The Client shall pay all undisputed invoices within 15 days of receipt.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "requirement",
+      "text": "Late payments shall accrue interest at a rate of 1.5% per month.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "obligation",
+      "text": "Each party shall keep the other party's Confidential Information strictly confidential.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "prohibition",
+      "text": "Neither party shall disclose Confidential Information to any third party without prior written consent.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "requirement",
+      "text": "Either party may terminate this Agreement with 60 days' written notice.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "requirement",
+      "text": "The Client may terminate immediately upon a material breach that remains uncured for 10 days after notice.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "prohibition",
+      "text": "Neither party shall be liable for indirect or consequential damages.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "requirement",
+      "text": "The Contractor's total liability shall not exceed the fees paid in the preceding six months.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "obligation",
+      "text": "The Contractor warrants that all services will be performed in a professional and workmanlike manner.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "definition",
+      "text": "\"Confidential Information\" means any non-public information disclosed by either party in connection with this Agreement.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "requirement",
+      "text": "This Agreement shall be governed by the laws of the jurisdiction in which the Client is incorporated.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-en-pdf-service-agreement",
+      "category": "prohibition",
+      "text": "The Contractor shall not assign this Agreement without the Client's prior written consent.",
+      "page": 3
+    },
+
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "deadline",
+      "text": "پیمانکار موظف است کار را ظرف نود روز از تاریخ ابلاغ قرارداد تکمیل نماید.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "requirement",
+      "text": "پیمانکار باید ضمانت‌نامه انجام تعهدات به میزان ده درصد مبلغ قرارداد ارائه دهد.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "deadline",
+      "text": "کارفرما موظف است پیش‌پرداخت را ظرف پانزده روز از امضای قرارداد واریز نماید.",
+      "page": 1
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "prohibition",
+      "text": "پیمانکار حق واگذاری قرارداد به شخص ثالث را بدون موافقت کتبی کارفرما ندارد.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "requirement",
+      "text": "در صورت تاخیر در تحویل، جریمه‌ای معادل نیم درصد مبلغ قرارداد به ازای هر روز تاخیر اعمال می‌شود.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "obligation",
+      "text": "پیمانکار موظف است گزارش پیشرفت کار را هر ماه به کارفرما ارائه دهد.",
+      "page": 2
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "definition",
+      "text": "«مدت قرارداد» به معنای بازه زمانی از تاریخ ابلاغ تا تحویل قطعی است.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "obligation",
+      "text": "پیمانکار باید کلیه پرسنل خود را بیمه نماید.",
+      "page": 3
+    },
+    {
+      "doc_id": "doc-fa-pdf-tender",
+      "category": "requirement",
+      "text": "کارفرما می‌تواند در صورت تخلف پیمانکار، قرارداد را فسخ نماید.",
+      "page": 3
+    },
+
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "category": "deadline",
+      "text": "پیمانکار موظف است محیط Staging را ظرف دو هفته از شروع پروژه راه‌اندازی کند.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "category": "requirement",
+      "text": "پیمانکار باید مستندات Deployment را به زبان فارسی و انگلیسی تحویل دهد.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "category": "deadline",
+      "text": "کارفرما موظف است دسترسی به سرورهای Production را ظرف پنج روز کاری فراهم کند.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "category": "prohibition",
+      "text": "پیمانکار حق ندارد بدون اجازه کارفرما اطلاعات پیکربندی را با اشخاص ثالث به اشتراک بگذارد.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-mixed-docx-it-project",
+      "category": "deadline",
+      "text": "در صورت بروز Downtime بیش از یک ساعت، پیمانکار موظف به ارائه گزارش علت و راه‌حل ظرف ۲۴ ساعت است.",
+      "page": null
+    },
+
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "deadline",
+      "text": "Employees must complete data protection training within 30 days of joining.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "prohibition",
+      "text": "Personal data shall not be stored on unencrypted portable devices.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "definition",
+      "text": "\"Personal Data\" means any information relating to an identified or identifiable individual.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "deadline",
+      "text": "Any data breach must be reported to the Data Protection Officer within 24 hours of discovery.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "prohibition",
+      "text": "Employees are prohibited from sharing login credentials with any other person.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "requirement",
+      "text": "Access to customer records shall be limited to employees with a documented business need.",
+      "page": null
+    },
+    {
+      "doc_id": "doc-en-docx-data-policy",
+      "category": "requirement",
+      "text": "Backup copies of production data must be retained for a minimum of 90 days.",
+      "page": null
+    }
+  ]
+}

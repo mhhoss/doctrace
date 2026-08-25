@@ -1,0 +1,34 @@
+[
+  {
+    "doc_id": "doc-en-pdf-service-agreement",
+    "format": "pdf",
+    "language": "en",
+    "pages": 3,
+    "description": "Synthetic English software service agreement, 8 numbered sections spanning 3 pages.",
+    "provenance": "Text authored for this evaluation; PDF bytes generated via tests/pdf_fixtures.py (this project's own byte-level PDF test-fixture builder) using generate_corpus.py in this directory — not a scanned or exported real-world document."
+  },
+  {
+    "doc_id": "doc-fa-pdf-tender",
+    "format": "pdf",
+    "language": "fa",
+    "pages": 3,
+    "description": "Synthetic Persian tender/procurement excerpt, 9 clauses (ماده) spanning 3 pages.",
+    "provenance": "Text authored for this evaluation; PDF bytes generated via tests/pdf_fixtures.py using generate_corpus.py in this directory — not a scanned or exported real-world document."
+  },
+  {
+    "doc_id": "doc-mixed-docx-it-project",
+    "format": "docx",
+    "language": "mixed",
+    "pages": null,
+    "description": "Synthetic Persian-dominant IT project agreement with inline English technical terms (Kubernetes, Staging, Deployment, Production, Downtime), 6 paragraphs, no clause numbering.",
+    "provenance": "Real .docx file (python-docx), text authored for this evaluation via generate_corpus.py in this directory."
+  },
+  {
+    "doc_id": "doc-en-docx-data-policy",
+    "format": "docx",
+    "language": "en",
+    "pages": null,
+    "description": "Synthetic English data-handling policy, 7 paragraphs, no clause numbering.",
+    "provenance": "Real .docx file (python-docx), text authored for this evaluation via generate_corpus.py in this directory."
+  }
+]
