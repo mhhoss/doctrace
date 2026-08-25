@@ -50,16 +50,31 @@ _BLOCK_SEP = "\n\n"
 
 def extract_text(*, file_type: str, content: bytes) -> str:
     """Extract raw text for a file already identified as `file_type` by the loader."""
+    return _BLOCK_SEP.join(extract_pages(file_type=file_type, content=content))
+
+
+def extract_pages(*, file_type: str, content: bytes) -> list[str]:
+    """Extract text as an ordered list of page-like blocks.
+
+    For PDF, each element is one real page (poppler's own page boundary) — the
+    primitive the extraction pipeline (ADR-24) attaches citations against. DOCX and
+    TXT have no page concept (`python-docx` exposes none; a TXT file was never paginated
+    at all), so both return a single-element list: callers must treat page attribution
+    for those two file types as unavailable, never invent a page number for them.
+
+    `extract_text` is defined in terms of this function, not the reverse — the two stay
+    exactly consistent by construction.
+    """
     if file_type == "pdf":
-        return _extract_pdf(content)
+        return _extract_pdf_pages(content)
     if file_type == "docx":
-        return _extract_docx(content)
+        return [_extract_docx(content)]
     if file_type == "txt":
-        return _extract_txt(content)
+        return [_extract_txt(content)]
     raise ValueError(f"Unsupported file_type: {file_type!r}")
 
 
-def _extract_pdf(content: bytes) -> str:
+def _extract_pdf_pages(content: bytes) -> list[str]:
     # `pdftotext` reads from a real path, not stdin-as-PDF; `delete=False` + a manual
     # `finally` unlink (rather than the usual context-manager auto-delete) because an
     # open, still-locked file handle can't reliably be reopened by a child process on
@@ -93,7 +108,7 @@ def _extract_pdf(content: bytes) -> str:
             f"{result.stderr.strip()}"
         )
     pages = result.stdout.split("\x0c")  # pdftotext separates pages with a form feed
-    return _BLOCK_SEP.join(page.strip() for page in pages if page.strip())
+    return [page.strip() for page in pages if page.strip()]
 
 
 def _extract_docx(content: bytes) -> str:

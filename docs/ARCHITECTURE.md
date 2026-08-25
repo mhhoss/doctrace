@@ -589,6 +589,70 @@ bge-m3, ~24% faster ingestion, ~37% faster query — but roughly half the separa
 gap (0.011 vs 0.024), so `RETRIEVAL_MIN_SCORE` should be re-measured, not assumed,
 before this provider is treated as a drop-in for the existing threshold at scale.
 
+**ADR-24 — `parser.extract_pages` exposes per-page text as a list; `extract_text` is now
+defined in terms of it, not the reverse.** Motivation: `parser.py` previously split PDF
+text on poppler's own page-boundary marker (`\x0c`) and immediately discarded page
+identity by rejoining into one flat string — the citation/extraction pipeline below has
+nothing to attach a page number to unless that identity survives. Considered and
+rejected: threading page *offsets* through one joined string. Offsets computed against
+raw extracted text do not survive `processor.normalize_text` (NFKC folding and
+character stripping both change string length), so any offset-based scheme needs
+offset-adjustment through every normalization step — fragile, and wrong the moment a
+new normalization rule is added. A page **list** instead of offsets sidesteps this
+entirely: an extracted item's page is resolved by searching each page's own text for
+its supporting quote (exact, then fuzzy), never by tracking a position through
+transformations. `extract_text`'s own contract, output, and every existing caller are
+unchanged (`extract_text = "\n\n".join(extract_pages(...))`, pinned by a dedicated test)
+— zero blast radius on the existing ingestion/retrieval path, confirmed by the full
+suite passing unmodified. DOCX and TXT have no real page concept and `extract_pages`
+returns a single element for both — callers must not invent a page number for either.
+
+**ADR-25 — `app/extraction/`, a new package sibling to `app/rag/`, extracts a
+structured, page-cited requirement register instead of relying on `top_k` retrieval
+to answer "list every requirement."** Motivation: retrieval returning `top_k=3`
+chunks structurally cannot enumerate everything in a document — coverage, not
+similarity, is what a review workflow needs. Deliberately **not** nested under
+`rag/`: it never touches the vector store, `embedding_fingerprint`, or a
+knowledge-base reset, and conflating it with retrieval would violate the same
+per-module boundary this project already enforces (invariant 3). The two pipelines
+share only `documents/loader.py` and the page-preserving `parser.py`, then diverge.
+
+Pipeline (deterministic map, one LLM call per section, not an agent loop):
+`sectionize()` splits normalized text on clause-header patterns (`ماده`, `بند`,
+`Article`, `Section`, bare numbering), falling back to fixed-size windowing
+(`processor.chunk_text`, reused unmodified) when headers are sparse — the fallback,
+not the regex, is what guarantees coverage on real, inconsistently-formatted PDFs.
+Each section is sent through `llm_calls.extract_section_items` (`llm.structured_predict`
+against `build_llm(settings)`, reused unmodified — a new caller, not a new provider)
+for a list of `{category, text, quote}` items; `quote` is a verbatim span, which turns
+page attachment into a deterministic string-search problem (`matching.locate_quote`:
+exact match per page, then fuzzy, then adjacent-page pairs for a clause straddling a
+page break) instead of a second LLM call or fragile offset-tracking through
+normalization. `matching.deduplicate` collapses near-duplicates the windowed
+fallback's overlapping windows can produce, using plain string similarity — no
+embeddings, the item counts involved don't justify the complexity.
+
+The one legitimate agentic component: `llm_calls.verify_item`, an independent LLM
+call per extracted item checking whether its parent section's *full* text (not just
+the quote — otherwise the check degenerates into verifying the quote against itself)
+actually supports the claim as stated. A failed verification never deletes the item —
+`VerificationStatus.FAILED`, confidence discounted — a review tool that silently
+drops flagged items defeats its own purpose. A verifier call that itself errors gets
+`NOT_RUN`, never conflated with `FAILED`: "checked and wrong" and "couldn't check"
+are different facts. Confidence (`ExtractedItem.confidence`) is computed from these
+pipeline signals — exact vs. fuzzy quote match, verification outcome — and is never
+the LLM's own self-reported number, which is well documented as uncalibrated.
+
+Failure isolation mirrors ADR-7 one layer down: one section's LLM or schema-validation
+failure marks that section `failed` in `ExtractionOutcome.sections` and is simply
+absent from the register — it never aborts the document or corrupts other sections'
+results, matching `IngestOutcome`'s never-raises convention exactly. Zero extractable
+text reuses the same `"No extractable text was found in this file."` outcome message
+`rag/engine.py` already uses for the same root cause. Re-extraction/retry-on-failed-
+verification is deliberately not implemented: a second LLM call producing a different
+answer is not "fixing" the first, it's rolling dice, and there is no clear termination
+condition for such a loop.
+
 ## Performance
 
 Scale evaluation (2026-08-18) against the current production setup: poppler PDF
