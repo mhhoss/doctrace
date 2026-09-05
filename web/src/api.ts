@@ -7,7 +7,7 @@ import type {
 
 export class ApiError extends Error {}
 
-const API_KEY_STORAGE_KEY = 'pka-api-key'
+const API_KEY_STORAGE_KEY = 'doctrace-api-key'
 
 export function getStoredApiKey(): string {
   try {
@@ -92,10 +92,24 @@ export const api = {
     return request<ExtractionResponse>('POST', '/extract', { formData })
   },
 
+  getExtraction: (documentId: string) =>
+    request<ExtractionResponse>('GET', `/extract/${documentId}`),
+
   query: (query: string) =>
     request<AnswerResponse>('POST', '/query', { json: { query } }),
 
+  locateQuote: (documentId: string, quote: string) =>
+    request<{ page_start: number | null; page_end: number | null; located: boolean }>(
+      'POST',
+      `/documents/${documentId}/locate-quote`,
+      { json: { quote } },
+    ),
+
   health: () => request<{ ok: boolean; checks: unknown[] }>('GET', '/health'),
+}
+
+export function documentFileUrl(documentId: string): string {
+  return `/documents/${documentId}/file`
 }
 
 export async function pollIngestionJob(

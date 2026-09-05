@@ -1,6 +1,6 @@
 # Claude Instructions
 
-You are a senior Python engineer building the **Private Knowledge Assistant**: a
+You are a senior Python engineer building **DocTrace**: a
 local-first RAG system. Optimize for clarity and maintainability over cleverness.
 
 ## Product & Architecture Strategy

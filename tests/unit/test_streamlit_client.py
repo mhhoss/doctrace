@@ -353,18 +353,18 @@ class TestAnswerRendering:
 
     def test_markers_become_reference_spans(self) -> None:
         rendered = _answer_html("Costs rose 12% [1].")
-        assert '<span class="pka-ref">1</span>' in rendered
+        assert '<span class="doctrace-ref">1</span>' in rendered
         assert "[1]" not in rendered
 
     def test_every_marker_in_a_multi_source_answer_is_rendered(self) -> None:
         rendered = _answer_html("First [1]. Second [2]. Third [3].")
         for number in ("1", "2", "3"):
-            assert f'<span class="pka-ref">{number}</span>' in rendered
+            assert f'<span class="doctrace-ref">{number}</span>' in rendered
 
     def test_an_answer_without_markers_renders_as_plain_prose(self) -> None:
         rendered = _answer_html("Costs rose 12 percent.")
         assert rendered == "Costs rose 12 percent."
-        assert "pka-ref" not in rendered
+        assert "doctrace-ref" not in rendered
 
     def test_newlines_become_line_breaks(self) -> None:
         assert "<br>" in _answer_html("One line.\nAnother line.")
@@ -373,21 +373,21 @@ class TestAnswerRendering:
         rendered = _answer_html("<script>alert('x')</script> [1]")
         assert "<script>" not in rendered
         assert "&lt;script&gt;" in rendered
-        assert '<span class="pka-ref">1</span>' in rendered
+        assert '<span class="doctrace-ref">1</span>' in rendered
 
     def test_persian_answer_markers_are_rendered(self) -> None:
         rendered = _answer_html("هزینه دوازده درصد افزایش یافت [1].")
-        assert '<span class="pka-ref">1</span>' in rendered
+        assert '<span class="doctrace-ref">1</span>' in rendered
         assert "هزینه دوازده درصد افزایش یافت" in rendered
 
     def test_mixed_script_answer_keeps_both_scripts_and_markers(self) -> None:
         rendered = _answer_html("تیم از Kubernetes استفاده می‌کند [2].")
         assert "Kubernetes" in rendered
         assert "تیم از" in rendered
-        assert '<span class="pka-ref">2</span>' in rendered
+        assert '<span class="doctrace-ref">2</span>' in rendered
 
     def test_multi_digit_markers_are_supported(self) -> None:
-        assert '<span class="pka-ref">12</span>' in _answer_html("Claim [12].")
+        assert '<span class="doctrace-ref">12</span>' in _answer_html("Claim [12].")
 
 
 class TestModuleHasNoForbiddenImports:

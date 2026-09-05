@@ -1,7 +1,7 @@
 [project]
-name = "private-knowledge-assistant"
+name = "doctrace"
 version = "0.1.0"
-description = "Private Knowledge Assistant - RAG based Document Q&A"
+description = "DocTrace - private document intelligence with page-level citations"
 requires-python = "==3.14.*"
 dependencies = [
     "chromadb>=1.5.9",

@@ -283,7 +283,7 @@ Any change to retrieval, chunking, or citation behavior should ideally include a
 
 The current commercial product is:
 
-**A production-grade Windows-first private knowledge assistant for Persian and English documents, with simple deployment, high retrieval quality, reliable citations, and practical ingestion speed.**
+**DocTrace — a production-grade Windows-first private document intelligence system for Persian and English documents, with simple deployment, high retrieval quality, reliable page-level citations, and practical ingestion speed.**
 
 It also serves as the reference implementation of the reusable foundation for future vertical AI knowledge products.
 

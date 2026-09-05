@@ -428,6 +428,59 @@ wheels = [
 ]
 
 [[package]]
+name = "doctrace"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "chromadb" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "llama-index" },
+    { name = "llama-index-embeddings-openai" },
+    { name = "llama-index-llms-openai" },
+    { name = "llama-index-vector-stores-chroma" },
+    { name = "onnxruntime" },
+    { name = "pydantic-settings" },
+    { name = "pyright" },
+    { name = "python-docx" },
+    { name = "python-dotenv" },
+    { name = "streamlit" },
+    { name = "tokenizers" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "chromadb", specifier = ">=1.5.9" },
+    { name = "fastapi", specifier = ">=0.141.1" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "llama-index", specifier = ">=0.14.23" },
+    { name = "llama-index-embeddings-openai", specifier = ">=0.6.0" },
+    { name = "llama-index-llms-openai", specifier = ">=0.7.10" },
+    { name = "llama-index-vector-stores-chroma", specifier = ">=0.5.5" },
+    { name = "onnxruntime", specifier = ">=1.28.0" },
+    { name = "pydantic-settings", specifier = ">=2.15.0" },
+    { name = "pyright", specifier = ">=1.1.411" },
+    { name = "python-docx", specifier = ">=1.2.0" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
+    { name = "streamlit", specifier = ">=1.61.1" },
+    { name = "tokenizers", specifier = ">=0.23.1" },
+    { name = "uvicorn", specifier = ">=0.52.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "ruff", specifier = ">=0.16.3" },
+]
+
+[[package]]
 name = "durationpy"
 version = "0.10"
 source = { registry = "https://pypi.org/simple" }
@@ -1514,59 +1567,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
-]
-
-[[package]]
-name = "private-knowledge-assistant"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "chromadb" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "llama-index" },
-    { name = "llama-index-embeddings-openai" },
-    { name = "llama-index-llms-openai" },
-    { name = "llama-index-vector-stores-chroma" },
-    { name = "onnxruntime" },
-    { name = "pydantic-settings" },
-    { name = "pyright" },
-    { name = "python-docx" },
-    { name = "python-dotenv" },
-    { name = "streamlit" },
-    { name = "tokenizers" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "chromadb", specifier = ">=1.5.9" },
-    { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "llama-index", specifier = ">=0.14.23" },
-    { name = "llama-index-embeddings-openai", specifier = ">=0.6.0" },
-    { name = "llama-index-llms-openai", specifier = ">=0.7.10" },
-    { name = "llama-index-vector-stores-chroma", specifier = ">=0.5.5" },
-    { name = "onnxruntime", specifier = ">=1.28.0" },
-    { name = "pydantic-settings", specifier = ">=2.15.0" },
-    { name = "pyright", specifier = ">=1.1.411" },
-    { name = "python-docx", specifier = ">=1.2.0" },
-    { name = "python-dotenv", specifier = ">=1.2.3" },
-    { name = "streamlit", specifier = ">=1.61.1" },
-    { name = "tokenizers", specifier = ">=0.23.1" },
-    { name = "uvicorn", specifier = ">=0.52.3" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "ruff", specifier = ">=0.16.3" },
 ]
 
 [[package]]

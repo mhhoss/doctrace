@@ -8,6 +8,9 @@ Provider configuration is resolved once at startup and never mutated afterward
 the `VectorStore` is likewise a true singleton, never rebuilt or swapped. Opening the
 store here is also where the ADR-8 embedding-fingerprint check runs, and a mismatch
 fails application startup rather than surfacing per request.
+
+Jobs, extraction results, and original files are backed by one SQLite DB under
+`Settings.data_dir` (ADR-29) — a restart no longer loses them.
 """
 
 from __future__ import annotations
@@ -33,6 +36,8 @@ from app.config import (
 from app.extraction.store import ExtractionStore
 from app.observability import configure_logging, log_event
 from app.rag.jobs import JobStore
+from app.storage.db import Database
+from app.storage.files import FileStore
 from app.storage.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -67,12 +72,20 @@ def _lifespan_for(settings_factory: Callable[[], Settings]):
             collection_name=settings.chroma_collection,
             embedding_fingerprint=settings.embedding_fingerprint,
         )
-        # In-memory background-ingestion job registry (ADR-17). One per process,
-        # never persisted or rebuilt at runtime — the same lifecycle as `store` above.
-        app.state.job_store = JobStore()
-        # In-memory extraction results (ADR-25); same lifecycle, durability is a
-        # separate later change (see extraction/store.py's docstring).
-        app.state.extraction_store = ExtractionStore()
+        # One SQLite DB backs jobs, extraction results, and original files (ADR-29).
+        db = Database(settings.data_dir / "doctrace.db")
+        app.state.db = db
+        app.state.file_store = FileStore(db)
+        app.state.job_store = JobStore(db)
+        swept = app.state.job_store.sweep_interrupted()
+        if swept:
+            log_event(
+                logger,
+                logging.WARNING,
+                "closed out jobs interrupted by a prior restart",
+                job_ids=swept,
+            )
+        app.state.extraction_store = ExtractionStore(db)
         llm_provider, embedding_provider = describe_providers(settings)
         log_event(
             logger,
@@ -85,6 +98,7 @@ def _lifespan_for(settings_factory: Callable[[], Settings]):
             embedding_is_local=embedding_provider.is_local,
         )
         yield
+        db.close()
 
     return lifespan
 
@@ -108,7 +122,7 @@ def create_app(*, settings: Settings | None = None) -> FastAPI:
         _settings_from_environment if settings is None else (lambda: settings)
     )
     app = FastAPI(
-        title="Document Intelligence",
+        title="DocTrace",
         lifespan=_lifespan_for(settings_factory),
     )
     app.include_router(router)

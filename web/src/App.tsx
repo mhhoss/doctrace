@@ -1,10 +1,19 @@
-import { useState } from 'react'
-import { api, ApiError, getStoredApiKey, pollIngestionJob, setStoredApiKey } from './api'
+import { useEffect, useState } from 'react'
+import {
+  api,
+  ApiError,
+  documentFileUrl,
+  getStoredApiKey,
+  pollIngestionJob,
+  setStoredApiKey,
+} from './api'
 import { DocumentList } from './components/DocumentList'
 import { RequirementsTable } from './components/RequirementsTable'
 import { PdfViewer } from './components/PdfViewer'
 import { AskPanel } from './components/AskPanel'
-import type { ExtractedItem, LocalDocument } from './types'
+import { CitationViewer } from './components/CitationViewer'
+import { IconInbox, IconSettings, IconSparkle } from './components/icons'
+import type { Citation, DocumentSummary, ExtractedItem, LocalDocument } from './types'
 
 function fileType(filename: string): LocalDocument['fileType'] {
   const ext = filename.toLowerCase().split('.').pop()
@@ -18,6 +27,17 @@ function makeLocalId(): string {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+// Mirrors `app.documents.loader.compute_document_id` exactly (SHA-256, first 32 hex
+// chars) so a duplicate can be caught client-side, before spending an upload and an
+// LLM extraction call on content already in the knowledge base (ADR-3's identity).
+async function computeDocumentId(content: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', content)
+  const hex = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+  return hex.slice(0, 32)
+}
+
 export default function App() {
   const [documents, setDocuments] = useState<LocalDocument[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -25,8 +45,59 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<ExtractedItem | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState(getStoredApiKey())
+  const [openCitation, setOpenCitation] = useState<Citation | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const selectedDocument = documents.find((d) => d.localId === selectedId) ?? null
+
+  // Restore the knowledge base's document list on load (ADR-29 persists jobs,
+  // extraction results, and original files server-side, so this survives a reload
+  // instead of only living in this component's in-memory state).
+  useEffect(() => {
+    let cancelled = false
+    async function restore() {
+      let summaries: DocumentSummary[]
+      try {
+        summaries = (await api.listDocuments()).documents
+      } catch {
+        // API unreachable at load time — the sidebar just starts empty, same as
+        // before this restore existed; the user can still retry via a reload.
+        return
+      }
+      const restored = await Promise.all(
+        summaries.map(async (summary): Promise<LocalDocument> => {
+          const base: LocalDocument = {
+            localId: `remote-${summary.document_id}`,
+            filename: summary.filename,
+            fileType: fileType(summary.filename),
+            ingestDocumentId: summary.document_id,
+            ingestStatus: 'indexed',
+            extraction: null,
+            extractionStatus: 'idle',
+            extractionError: null,
+          }
+          try {
+            const extraction = await api.getExtraction(summary.document_id)
+            return {
+              ...base,
+              extraction,
+              extractionStatus: extraction.status === 'succeeded' ? 'done' : 'failed',
+              extractionError: extraction.status === 'failed' ? extraction.error : null,
+            }
+          } catch {
+            // No extraction result for this document (never ran, or predates it) —
+            // it still belongs in the list; the Requirements tab just stays empty.
+            return base
+          }
+        }),
+      )
+      if (!cancelled) setDocuments(restored)
+    }
+    void restore()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function updateDocument(localId: string, patch: Partial<LocalDocument>) {
     setDocuments((prev) =>
@@ -34,9 +105,43 @@ export default function App() {
     )
   }
 
+  async function handleDelete(localId: string) {
+    const doc = documents.find((d) => d.localId === localId)
+    setDocuments((prev) => prev.filter((d) => d.localId !== localId))
+    if (selectedId === localId) {
+      setSelectedId(null)
+      setSelectedItem(null)
+    }
+    // Both routes derive document_id from content (ADR-3), so either is the same id —
+    // prefer whichever one actually completed.
+    const documentId = doc?.ingestDocumentId ?? doc?.extraction?.document_id
+    if (documentId) {
+      try {
+        await api.deleteDocument(documentId)
+      } catch {
+        // The document is already gone from this list; a failed backend cleanup
+        // isn't worth blocking on or re-adding the row for.
+      }
+    }
+  }
+
   async function handleUpload(files: FileList) {
+    // Tracks content ids already in (or about to enter) the knowledge base, so two
+    // copies of the same file selected together are caught too, not just a re-upload
+    // against what was already indexed before this call.
+    const knownIds = new Set(
+      documents.map((d) => d.ingestDocumentId ?? d.extraction?.document_id).filter(Boolean),
+    )
+
     for (const file of Array.from(files)) {
       const bytes = await file.arrayBuffer()
+      const contentId = await computeDocumentId(bytes)
+      if (knownIds.has(contentId)) {
+        setNotice(`"${file.name}" is already in the knowledge base — skipped.`)
+        continue
+      }
+      knownIds.add(contentId)
+
       const localId = makeLocalId()
       const doc: LocalDocument = {
         localId,
@@ -93,19 +198,33 @@ export default function App() {
     setSelectedItem(item)
   }
 
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), 4000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-title">Document Intelligence</span>
-        <span className="app-subtitle">
-          Page-cited requirement extraction — not a chat wrapper
-        </span>
+        <div className="app-brand">
+          <span className="app-mark">
+            <IconSparkle />
+          </span>
+          <div className="app-titles">
+            <span className="app-title">DocTrace</span>
+            <span className="app-subtitle">
+              Private document intelligence with page-level citations
+            </span>
+          </div>
+        </div>
         <button
           type="button"
-          className="settings-button"
+          className="icon-button"
+          title="Settings"
           onClick={() => setShowSettings((v) => !v)}
         >
-          ⚙
+          <IconSettings />
         </button>
       </header>
 
@@ -134,12 +253,14 @@ export default function App() {
               setSelectedItem(null)
             }}
             onUpload={(files) => void handleUpload(files)}
+            onDelete={(id) => void handleDelete(id)}
           />
         </aside>
 
         <main className="app-main">
           {!selectedDocument ? (
             <div className="empty-state large">
+              <IconInbox />
               Add a document to get started.
             </div>
           ) : (
@@ -184,6 +305,13 @@ export default function App() {
                     {selectedDocument.fileType === 'pdf' ? (
                       <PdfViewer
                         bytes={selectedDocument.bytes}
+                        url={
+                          selectedDocument.bytes
+                            ? undefined
+                            : selectedDocument.ingestDocumentId
+                              ? documentFileUrl(selectedDocument.ingestDocumentId)
+                              : undefined
+                        }
                         targetPage={selectedItem?.page_start ?? null}
                       />
                     ) : (
@@ -208,11 +336,17 @@ export default function App() {
                 </div>
               )}
 
-              {tab === 'ask' && <AskPanel />}
+              {tab === 'ask' && <AskPanel onCiteClick={setOpenCitation} />}
             </>
           )}
         </main>
       </div>
+
+      {openCitation && (
+        <CitationViewer citation={openCitation} onClose={() => setOpenCitation(null)} />
+      )}
+
+      {notice && <div className="toast">{notice}</div>}
     </div>
   )
 }

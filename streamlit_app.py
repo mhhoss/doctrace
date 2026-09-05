@@ -130,7 +130,7 @@ class ApiClient:
             ) from error
         except httpx.RequestError as error:
             raise ApiError(
-                "Could not reach the Private Knowledge Assistant API. "
+                "Could not reach the DocTrace API. "
                 "Please confirm it is running and try again."
             ) from error
         if response.status_code >= 400:
@@ -172,13 +172,13 @@ def _error_detail(response: httpx.Response) -> str:
 _CITATION_SPLIT = re.compile(r"(\[\d+\])")
 
 _STATUS_LABEL = {
-    "indexed": ("pka-ok", "Indexed"),
-    "already_indexed": ("pka-dim", "Already indexed"),
-    "failed": ("pka-bad", "Failed"),
+    "indexed": ("doctrace-ok", "Indexed"),
+    "already_indexed": ("doctrace-dim", "Already indexed"),
+    "failed": ("doctrace-bad", "Failed"),
     # Client-side only: a file the user removed from the batch before it was ever sent
     # to the API. Never produced by the backend, never a real `IngestStatus` value —
     # purely a label for this dialog's own progress list.
-    "skipped": ("pka-dim", "Removed"),
+    "skipped": ("doctrace-dim", "Removed"),
 }
 
 _FONT_URL = "app/static/fonts/Vazirmatn-Variable.woff2"
@@ -233,80 +233,80 @@ html, body { overflow: hidden; }
 #MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
 
 /* --- masthead --- */
-.pka-brand {
+.doctrace-brand {
     display: flex; align-items: center; gap: 0.6rem; padding: 0 0.25rem 0.9rem 0.25rem;
 }
-.pka-brand-dot {
+.doctrace-brand-dot {
     width: 22px; height: 22px; border-radius: 7px; background: var(--blue);
     display: inline-block; flex: none;
 }
-.pka-brand-name {
+.doctrace-brand-name {
     font-size: 1.02rem; font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
 }
-.pka-brand-sub { font-size: 0.8rem; color: var(--ink-faint); margin-inline-start: auto; }
+.doctrace-brand-sub { font-size: 0.8rem; color: var(--ink-faint); margin-inline-start: auto; }
 
 /* --- panes as cards --- */
 /* A fixed-height card whose *content* scrolls, not the card: the frame is immovable and
    only what is inside a panel moves when the user scrolls it. */
-div[data-testid="stColumn"]:has(.pka-card) {
+div[data-testid="stColumn"]:has(.doctrace-card) {
     background: var(--card); border: 1px solid var(--line);
     border-radius: var(--r-card); padding: 0.95rem 1.05rem 1.1rem 1.05rem;
     height: calc(100vh - 88px); overflow-y: auto; overflow-x: hidden;
     scrollbar-width: thin;
 }
-div[data-testid="stColumn"]:has(.pka-rail) {
+div[data-testid="stColumn"]:has(.doctrace-rail) {
     background: var(--card); border: 1px solid var(--line);
     border-radius: var(--r-card); padding: 0.95rem 0.35rem;
     height: calc(100vh - 88px); overflow: hidden;
 }
 /* Panel titles sit in the middle column of a symmetric 1fr/auto/1fr header row, so
    centring the text here centres it in the panel, not just in its own column. */
-.pka-head {
+.doctrace-head {
     font-size: 0.95rem; font-weight: 600; color: var(--ink); letter-spacing: -0.005em;
     text-align: center;
 }
-.pka-head-note {
+.doctrace-head-note {
     font-size: 0.76rem; font-weight: 400; color: var(--ink-faint);
     margin-inline-start: 0.45rem;
 }
-.pka-rule {
+.doctrace-rule {
     height: 1px; background: var(--line); margin: 0.7rem -1.05rem 1rem -1.05rem;
 }
-.pka-rail-label {
+.doctrace-rail-label {
     font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em;
     text-transform: uppercase; color: var(--ink-faint);
     writing-mode: vertical-rl; margin: 1rem auto 0 auto;
 }
 
 /* --- sources --- */
-.pka-blank {
+.doctrace-blank {
     text-align: center; padding: 2.2rem 0.5rem; color: var(--ink-faint);
 }
-.pka-blank-mark { font-size: 1.4rem; opacity: 0.5; }
-.pka-blank-title {
+.doctrace-blank-mark { font-size: 1.4rem; opacity: 0.5; }
+.doctrace-blank-title {
     font-size: 0.88rem; color: var(--ink-soft); margin-top: 0.6rem; font-weight: 500;
 }
-.pka-blank-text { font-size: 0.79rem; line-height: 1.6; margin-top: 0.35rem; }
+.doctrace-blank-text { font-size: 0.79rem; line-height: 1.6; margin-top: 0.35rem; }
 
-.pka-row { padding: 0.45rem 0.4rem; margin: 0 -0.4rem; border-radius: 8px; }
-div[data-testid="stHorizontalBlock"]:has(.pka-row):hover .pka-row {
+.doctrace-row { padding: 0.45rem 0.4rem; margin: 0 -0.4rem; border-radius: 8px; }
+div[data-testid="stHorizontalBlock"]:has(.doctrace-row):hover .doctrace-row {
     background: var(--canvas);
 }
-.pka-row-name {
+.doctrace-row-name {
     font-size: 0.845rem; font-weight: 500; color: var(--ink); line-height: 1.45;
     word-break: break-word;
 }
-.pka-row-meta {
+.doctrace-row-meta {
     font-size: 0.715rem; color: var(--ink-faint); margin-top: 0.1rem;
     letter-spacing: 0.03em;
 }
-.pka-ok { color: var(--blue-ink); font-weight: 600; }
-.pka-dim { color: var(--ink-faint); font-weight: 600; }
-.pka-bad { color: var(--bad); font-weight: 600; }
-.pka-row-error {
+.doctrace-ok { color: var(--blue-ink); font-weight: 600; }
+.doctrace-dim { color: var(--ink-faint); font-weight: 600; }
+.doctrace-bad { color: var(--bad); font-weight: 600; }
+.doctrace-row-error {
     font-size: 0.74rem; color: var(--bad); line-height: 1.5; margin: 0 0 0.45rem 0.4rem;
 }
-.pka-scope {
+.doctrace-scope {
     font-size: 0.735rem; color: var(--ink-soft); line-height: 1.55;
     background: var(--canvas); border-radius: 8px; padding: 0.5rem 0.65rem;
     margin-top: 0.9rem;
@@ -329,44 +329,44 @@ div[data-testid="stHorizontalBlock"]:has(button[title^="Remove"]) button:focus-v
 }
 
 /* --- chat --- */
-.pka-hero { text-align: center; padding: 3.2rem 1rem 0 1rem; }
-.pka-hero-mark { font-size: 1.9rem; opacity: 0.5; }
-.pka-hero-title {
+.doctrace-hero { text-align: center; padding: 3.2rem 1rem 0 1rem; }
+.doctrace-hero-mark { font-size: 1.9rem; opacity: 0.5; }
+.doctrace-hero-title {
     font-size: 1.35rem; font-weight: 600; color: var(--ink); margin-top: 0.9rem;
     letter-spacing: -0.01em;
 }
-.pka-hero-sub {
+.doctrace-hero-sub {
     font-size: 0.87rem; color: var(--ink-faint); margin-top: 0.45rem; line-height: 1.6;
 }
-.pka-asked {
+.doctrace-asked {
     font-size: 0.87rem; color: var(--ink-soft); line-height: 1.55;
     background: var(--canvas); border-radius: 12px; padding: 0.7rem 0.9rem;
     margin-bottom: 1.3rem;
     /* Direction and alignment follow the rendered script, matching the composer. */
     unicode-bidi: plaintext; text-align: start;
 }
-.pka-reply {
+.doctrace-reply {
     font-size: 0.99rem; line-height: 1.78; color: var(--ink);
     unicode-bidi: plaintext; text-align: start;
 }
-.pka-declined {
+.doctrace-declined {
     background: var(--canvas); border-radius: 12px; padding: 0.9rem 1rem;
 }
-.pka-declined-label {
+.doctrace-declined-label {
     font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em;
     text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.3rem;
 }
-.pka-declined-text {
+.doctrace-declined-text {
     color: var(--ink-soft); font-size: 0.93rem; line-height: 1.65;
     unicode-bidi: plaintext; text-align: start;
 }
 /* The chat panel is a flex column: the title + history live in their own scrollable
-   region (`.pka-history` marks its container below) above the composer, which is a
+   region (`.doctrace-history` marks its container below) above the composer, which is a
    plain flex sibling rendered *after* that region closes — structurally outside the
    scrolling area, so it can never end up below the scrollable content or need
-   scrolling to reach. Scoped to the chat column only (via `.pka-composer`, only ever
+   scrolling to reach. Scoped to the chat column only (via `.doctrace-composer`, only ever
    present there) so Sources/Models keep scrolling as a whole card, unchanged. */
-div[data-testid="stColumn"]:has(.pka-composer) {
+div[data-testid="stColumn"]:has(.doctrace-composer) {
     display: flex; flex-direction: column; overflow: hidden;
 }
 /* Every Streamlit layout block in this chain defaults to `min-height: auto`, which
@@ -375,32 +375,32 @@ div[data-testid="stColumn"]:has(.pka-composer) {
    Resetting it at each level (this is Streamlit's own single shared block wrapping
    both the history region and the composer) is what makes the next rule's `flex: 1 1
    auto` on the history region actually take effect within the card's fixed height. */
-div[data-testid="stColumn"]:has(.pka-composer) > div[data-testid="stVerticalBlock"] {
+div[data-testid="stColumn"]:has(.doctrace-composer) > div[data-testid="stVerticalBlock"] {
     min-height: 0;
 }
 /* The direct wrapper Streamlit puts around the history container: its own default
    (`flex: 0 1 auto`, sized to content only) is what was silently preventing the
    scrollable region from ever being height-constrained — `flex: 1 1 auto` here is
    what actually makes it fill the remaining space above the composer. */
-div[data-testid="stColumn"]:has(.pka-composer)
-    div[data-testid="stLayoutWrapper"]:has(div[data-testid="stVerticalBlock"] .pka-history) {
+div[data-testid="stColumn"]:has(.doctrace-composer)
+    div[data-testid="stLayoutWrapper"]:has(div[data-testid="stVerticalBlock"] .doctrace-history) {
     flex: 1 1 auto; min-height: 0; overflow: hidden;
 }
-div[data-testid="stColumn"]:has(.pka-composer)
-    div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .pka-history) {
+div[data-testid="stColumn"]:has(.doctrace-composer)
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .doctrace-history) {
     flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
     scrollbar-width: thin;
 }
 /* Keeps a short hero/history bottom-anchored within that scrollable region. */
-.pka-grow { min-height: 12vh; }
+.doctrace-grow { min-height: 12vh; }
 
 /* --- inline citations --- */
-.pka-ref {
+.doctrace-ref {
     display: inline-block; font-size: 0.69rem; font-weight: 600;
     color: var(--blue-ink); background: var(--blue-wash); border-radius: 4px;
     padding: 0.02rem 0.3rem; margin: 0 0.1rem; vertical-align: 0.12em; line-height: 1.5;
 }
-.pka-evidence {
+.doctrace-evidence {
     font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em;
     text-transform: uppercase; color: var(--ink-faint); margin: 1.4rem 0 0.5rem 0;
 }
@@ -415,62 +415,62 @@ div[data-testid="stColumn"]:has(.pka-composer)
 [data-testid="stPopover"] button:focus-visible {
     outline: 2px solid var(--blue); outline-offset: 2px;
 }
-.pka-cite-name {
+.doctrace-cite-name {
     font-size: 0.8rem; font-weight: 600; color: var(--ink); margin-bottom: 0.1rem;
     unicode-bidi: plaintext; text-align: start;
 }
-.pka-cite-meta {
+.doctrace-cite-meta {
     font-size: 0.69rem; color: var(--ink-faint); letter-spacing: 0.03em;
     padding-bottom: 0.5rem; margin-bottom: 0.55rem; border-bottom: 1px solid var(--line);
 }
-.pka-cite-body {
+.doctrace-cite-body {
     font-size: 0.85rem; color: var(--ink-soft); line-height: 1.65;
     unicode-bidi: plaintext; text-align: start;
 }
 
 /* --- models --- */
-.pka-field-label {
+.doctrace-field-label {
     font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em;
     text-transform: uppercase; color: var(--ink-faint); margin: 0 0 0.5rem 0;
 }
-.pka-model {
+.doctrace-model {
     font-size: 0.87rem; font-weight: 600; color: var(--ink); line-height: 1.4;
     word-break: break-word;
 }
-.pka-kv {
+.doctrace-kv {
     display: flex; gap: 0.5rem; font-size: 0.745rem; line-height: 1.65;
     margin-top: 0.3rem;
 }
-.pka-kv-key {
+.doctrace-kv-key {
     color: var(--ink-faint); flex: none; min-width: 2.6rem; letter-spacing: 0.03em;
 }
-.pka-kv-val { color: var(--ink-soft); word-break: break-all; font-variant-numeric: tabular-nums; }
-.pka-chip {
+.doctrace-kv-val { color: var(--ink-soft); word-break: break-all; font-variant-numeric: tabular-nums; }
+.doctrace-chip {
     display: inline-block; font-size: 0.69rem; font-weight: 600; border-radius: 999px;
     padding: 0.1rem 0.55rem; letter-spacing: 0.02em;
 }
-.pka-chip-local { background: var(--blue-wash); color: var(--blue-ink); }
-.pka-chip-cloud { background: #fdf3e7; color: #8a5a1b; }
-.pka-note {
+.doctrace-chip-local { background: var(--blue-wash); color: var(--blue-ink); }
+.doctrace-chip-cloud { background: #fdf3e7; color: #8a5a1b; }
+.doctrace-note {
     font-size: 0.74rem; color: var(--ink-soft); line-height: 1.6;
     background: var(--canvas); border-radius: 8px; padding: 0.55rem 0.65rem;
     margin-top: 0.7rem;
 }
-.pka-probe-ok { font-size: 0.76rem; color: var(--blue-ink); font-weight: 600; }
-.pka-probe-bad { font-size: 0.76rem; color: var(--bad); font-weight: 600; }
-.pka-probe-detail {
+.doctrace-probe-ok { font-size: 0.76rem; color: var(--blue-ink); font-weight: 600; }
+.doctrace-probe-bad { font-size: 0.76rem; color: var(--bad); font-weight: 600; }
+.doctrace-probe-detail {
     font-size: 0.72rem; color: var(--ink-faint); line-height: 1.5; margin-top: 0.2rem;
     word-break: break-word;
 }
 
 /* --- messages --- */
-.pka-alert {
+.doctrace-alert {
     background: var(--bad-wash); border: 1px solid #f2ddd9;
     border-left: 3px solid var(--bad); border-radius: var(--r-ctl);
     padding: 0.65rem 0.85rem; color: var(--bad); font-size: 0.815rem;
     line-height: 1.55; margin-bottom: 0.9rem;
 }
-.pka-busy {
+.doctrace-busy {
     font-size: 0.78rem; color: var(--blue-ink); font-weight: 500; margin-top: 0.4rem;
 }
 
@@ -531,18 +531,18 @@ div[data-testid="stForm"] div[data-testid="stHorizontalBlock"] {
    the chat-column rules earlier) — this is what actually keeps it permanently in
    place, rather than relying on `position: sticky` within Streamlit's generated
    markup. */
-div[data-testid="stColumn"]:has(.pka-composer) div[data-testid="stForm"] {
+div[data-testid="stColumn"]:has(.doctrace-composer) div[data-testid="stForm"] {
     flex: 0 0 auto;
     background: var(--card); margin-top: 0;
     padding: 0.7rem 0 0.2rem 0;
 }
 /* The send button is a circle inside the capsule — scoped to the chat composer via
-   its `.pka-composer` marker, since a plain `stForm` selector would also catch the
+   its `.doctrace-composer` marker, since a plain `stForm` selector would also catch the
    Models panel's ordinary "Save" buttons, which are forms too. Recent Streamlit
    builds name form-submit buttons by test id rather than `kind`, so both spellings
    are pinned. */
-div[data-testid="stColumn"]:has(.pka-composer) .stFormSubmitButton button,
-div[data-testid="stColumn"]:has(.pka-composer) button[data-testid*="FormSubmit"] {
+div[data-testid="stColumn"]:has(.doctrace-composer) .stFormSubmitButton button,
+div[data-testid="stColumn"]:has(.doctrace-composer) button[data-testid*="FormSubmit"] {
     height: 40px; min-width: 40px; width: 40px; padding: 0;
     border-radius: 50%; font-size: 1.45rem; line-height: 1;
     background: var(--blue); border: 1px solid var(--blue); color: #fff;
@@ -588,9 +588,9 @@ div[data-testid="stDialog"] {
 }
 /* The send button inverts on hover — white with a blue outline and glyph — matching
    every other control here, rather than darkening like a generic primary button.
-   Same `.pka-composer` scoping as the circle button itself. */
-div[data-testid="stColumn"]:has(.pka-composer) .stFormSubmitButton button:hover,
-div[data-testid="stColumn"]:has(.pka-composer) button[data-testid*="FormSubmit"]:hover {
+   Same `.doctrace-composer` scoping as the circle button itself. */
+div[data-testid="stColumn"]:has(.doctrace-composer) .stFormSubmitButton button:hover,
+div[data-testid="stColumn"]:has(.doctrace-composer) button[data-testid*="FormSubmit"]:hover {
     background: var(--card); border-color: var(--blue); color: var(--blue-ink);
 }
 /* With nothing typed there is nothing to invite: the idle circle stays quiet on hover. */
@@ -604,7 +604,7 @@ div[data-testid="stForm"] div[data-testid="stHorizontalBlock"]:has(
 }
 /* Pane collapse/expand controls read as quiet glyphs, not buttons. */
 div[data-testid="stHorizontalBlock"]:has(button[title*="panel"]) button,
-div[data-testid="stColumn"]:has(.pka-rail) button {
+div[data-testid="stColumn"]:has(.doctrace-rail) button {
     background: transparent; border: none; color: var(--ink-faint);
     font-size: 0.95rem; font-weight: 400;
     /* Fixed box so the glyph is the same target open or folded — the folded rail is a
@@ -614,10 +614,10 @@ div[data-testid="stColumn"]:has(.pka-rail) button {
     border-radius: 8px; margin-inline: auto;
 }
 div[data-testid="stHorizontalBlock"]:has(button[title*="panel"]) button:hover,
-div[data-testid="stColumn"]:has(.pka-rail) button:hover {
+div[data-testid="stColumn"]:has(.doctrace-rail) button:hover {
     color: var(--blue-ink); background: var(--blue-wash);
 }
-div[data-testid="stColumn"]:has(.pka-rail) .stButton {
+div[data-testid="stColumn"]:has(.doctrace-rail) .stButton {
     display: flex; justify-content: center;
 }
 [data-testid="stExpander"] { border-color: var(--line); box-shadow: none; }
@@ -632,19 +632,19 @@ div[data-testid="stColumn"]:has(.pka-rail) .stButton {
     .block-container {
         height: auto; overflow: visible;
     }
-    div[data-testid="stColumn"]:has(.pka-card),
-    div[data-testid="stColumn"]:has(.pka-rail) {
+    div[data-testid="stColumn"]:has(.doctrace-card),
+    div[data-testid="stColumn"]:has(.doctrace-rail) {
         height: auto; min-height: 0; overflow: visible; margin-bottom: 0.7rem;
     }
-    div[data-testid="stColumn"]:has(.pka-composer) {
+    div[data-testid="stColumn"]:has(.doctrace-composer) {
         display: block; overflow: visible;
     }
-    div[data-testid="stColumn"]:has(.pka-composer)
-        div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .pka-history) {
+    div[data-testid="stColumn"]:has(.doctrace-composer)
+        div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .doctrace-history) {
         overflow: visible;
     }
-    .pka-grow { min-height: 0; }
-    .pka-rail-label { writing-mode: horizontal-tb; margin: 0.4rem 0 0 0; }
+    .doctrace-grow { min-height: 0; }
+    .doctrace-rail-label { writing-mode: horizontal-tb; margin: 0.4rem 0 0 0; }
 }
 </style>
 """
@@ -670,7 +670,7 @@ def _load_documents(client: ApiClient) -> tuple[list[dict], str | None]:
 
 def _alert(message: str) -> None:
     st.markdown(
-        f'<div class="pka-alert" dir="auto">{html.escape(message)}</div>',
+        f'<div class="doctrace-alert" dir="auto">{html.escape(message)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -690,8 +690,8 @@ def _pane_header(
     outer edge, so the two side panes fold towards their own screen edge symmetrically.
     """
     heading = (
-        f'<div class="pka-head">{html.escape(title)}'
-        f'<span class="pka-head-note">{html.escape(note)}</span></div>'
+        f'<div class="doctrace-head">{html.escape(title)}'
+        f'<span class="doctrace-head-note">{html.escape(note)}</span></div>'
     )
     if collapse is None:
         st.markdown(heading, unsafe_allow_html=True)
@@ -705,17 +705,17 @@ def _pane_header(
             if st.button(glyph, key=f"fold-{state_key}", help=f"Hide {title} panel"):
                 st.session_state[state_key] = False
                 st.rerun()
-    st.markdown('<div class="pka-rule"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-rule"></div>', unsafe_allow_html=True)
 
 
 def _render_rail(title: str, state_key: str, glyph: str) -> None:
     """A folded pane: just enough to say what it is and to bring it back."""
-    st.markdown('<div class="pka-rail"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-rail"></div>', unsafe_allow_html=True)
     if st.button(glyph, key=f"unfold-{state_key}", help=f"Show {title} panel"):
         st.session_state[state_key] = True
         st.rerun()
     st.markdown(
-        f'<div class="pka-rail-label">{html.escape(title)}</div>',
+        f'<div class="doctrace-rail-label">{html.escape(title)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -827,13 +827,13 @@ def _render_ingest_progress(client: ApiClient) -> None:
     current_name = job["current_filename"] or ""
     st.progress(completed / total if total else 0.0)
     st.markdown(
-        f'<div class="pka-row-meta">{completed} / {total} files &middot; '
+        f'<div class="doctrace-row-meta">{completed} / {total} files &middot; '
         f'<span dir="auto">{html.escape(current_name)}</span> &middot; Indexing…</div>',
         unsafe_allow_html=True,
     )
     eta = job["eta_seconds"]
     st.markdown(
-        '<div class="pka-row-meta">Estimated time remaining: '
+        '<div class="doctrace-row-meta">Estimated time remaining: '
         f'{_format_eta(eta) if eta is not None else "Estimating…"}</div>',
         unsafe_allow_html=True,
     )
@@ -862,7 +862,7 @@ def _add_sources_dialog(client: ApiClient) -> None:
         return
 
     st.markdown(
-        '<div class="pka-blank-text">PDF, DOCX, or TXT, as many at once as you like — '
+        '<div class="doctrace-blank-text">PDF, DOCX, or TXT, as many at once as you like — '
         "pick several files, or drag a folder onto the box. Each file is indexed on its "
         "own, so one bad file never blocks the rest.</div>",
         unsafe_allow_html=True,
@@ -876,7 +876,7 @@ def _add_sources_dialog(client: ApiClient) -> None:
     if st.checkbox("Browse for a folder instead of files"):
         _enable_folder_picking()
         st.markdown(
-            '<div class="pka-blank-text">The browse dialog now selects a folder; '
+            '<div class="doctrace-blank-text">The browse dialog now selects a folder; '
             "only its PDF and DOCX files are taken.</div>",
             unsafe_allow_html=True,
         )
@@ -892,7 +892,7 @@ def _add_sources_dialog(client: ApiClient) -> None:
             row, action = st.columns([9, 1], vertical_alignment="center")
             with row:
                 st.markdown(
-                    f'<div class="pka-row"><div class="pka-row-name" dir="auto">'
+                    f'<div class="doctrace-row"><div class="doctrace-row-name" dir="auto">'
                     f"{html.escape(f.name)}</div></div>",
                     unsafe_allow_html=True,
                 )
@@ -903,7 +903,7 @@ def _add_sources_dialog(client: ApiClient) -> None:
                     excluded.add(f.name)
                     st.rerun()
         st.markdown(
-            f'<div class="pka-row-meta">{len(to_index)} of {len(picked)} '
+            f'<div class="doctrace-row-meta">{len(to_index)} of {len(picked)} '
             f'{"file" if len(picked) == 1 else "files"} ready</div>',
             unsafe_allow_html=True,
         )
@@ -922,7 +922,7 @@ def _add_sources_dialog(client: ApiClient) -> None:
     # base first"), so the UI must keep offering it somewhere. Tucked behind this dialog
     # and a confirmation, since it deletes every source permanently. Hidden while a
     # batch is queued so the knowledge base can't be reset out from under it.
-    st.markdown('<div class="pka-rule"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-rule"></div>', unsafe_allow_html=True)
     _render_reset(client)
 
 
@@ -930,14 +930,14 @@ def _render_upload_outcomes(results: list[dict]) -> None:
     for outcome in results:
         state_class, label = _STATUS_LABEL[outcome["status"]]
         st.markdown(
-            f'<div class="pka-row"><div class="pka-row-name" dir="auto">'
+            f'<div class="doctrace-row"><div class="doctrace-row-name" dir="auto">'
             f'{html.escape(outcome["filename"])}</div>'
-            f'<div class="pka-row-meta {state_class}">{label}</div></div>',
+            f'<div class="doctrace-row-meta {state_class}">{label}</div></div>',
             unsafe_allow_html=True,
         )
         if outcome["status"] == "failed" and outcome.get("error"):
             st.markdown(
-                f'<div class="pka-row-error" dir="auto">'
+                f'<div class="doctrace-row-error" dir="auto">'
                 f'{html.escape(outcome["error"])}</div>',
                 unsafe_allow_html=True,
             )
@@ -947,10 +947,10 @@ def _render_source_row(client: ApiClient, doc: dict) -> None:
     detail, action = st.columns([9, 1], vertical_alignment="center")
     with detail:
         st.markdown(
-            f'<div class="pka-row"><div class="pka-row-name" dir="auto">'
+            f'<div class="doctrace-row"><div class="doctrace-row-name" dir="auto">'
             f'{html.escape(doc["filename"])}</div>'
-            f'<div class="pka-row-meta">{html.escape(doc["file_type"].upper())}'
-            f' · <span class="pka-ok">Indexed</span></div></div>',
+            f'<div class="doctrace-row-meta">{html.escape(doc["file_type"].upper())}'
+            f' · <span class="doctrace-ok">Indexed</span></div></div>',
             unsafe_allow_html=True,
         )
     with action:
@@ -978,7 +978,7 @@ def _render_reset(client: ApiClient) -> None:
         return
 
     st.markdown(
-        '<div class="pka-blank-text">This removes every source permanently.</div>',
+        '<div class="doctrace-blank-text">This removes every source permanently.</div>',
         unsafe_allow_html=True,
     )
     keep, wipe = st.columns(2)
@@ -1002,7 +1002,7 @@ def _render_reset(client: ApiClient) -> None:
 def _render_sources(
     client: ApiClient, documents: list[dict], fetch_error: str | None
 ) -> None:
-    st.markdown('<div class="pka-card"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-card"></div>', unsafe_allow_html=True)
     count = len(documents)
     note = "" if fetch_error else f"{count}" if count else ""
     _pane_header("Sources", note=note, collapse=("sources_open", "«"))
@@ -1022,7 +1022,7 @@ def _render_sources(
         elapsed = st.session_state.get("upload_elapsed")
         if elapsed is not None:
             st.markdown(
-                f'<div class="pka-row-meta">Finished in {_format_eta(elapsed)}</div>',
+                f'<div class="doctrace-row-meta">Finished in {_format_eta(elapsed)}</div>',
                 unsafe_allow_html=True,
             )
         _render_upload_outcomes(st.session_state["upload_outcomes"])
@@ -1035,9 +1035,9 @@ def _render_sources(
 
     if not documents:
         st.markdown(
-            '<div class="pka-blank"><div class="pka-blank-mark">▤</div>'
-            '<div class="pka-blank-title">Your sources will appear here</div>'
-            '<div class="pka-blank-text">Add a PDF, DOCX, or TXT, then ask questions '
+            '<div class="doctrace-blank"><div class="doctrace-blank-mark">▤</div>'
+            '<div class="doctrace-blank-title">Your sources will appear here</div>'
+            '<div class="doctrace-blank-text">Add a PDF, DOCX, or TXT, then ask questions '
             "answered only from it.</div></div>",
             unsafe_allow_html=True,
         )
@@ -1050,7 +1050,7 @@ def _render_sources(
     # every question searches the whole knowledge base. No selection controls are
     # offered, because none would change the outcome.
     st.markdown(
-        f'<div class="pka-scope">Every question searches all {count} '
+        f'<div class="doctrace-scope">Every question searches all {count} '
         f'{"source" if count == 1 else "sources"}.</div>',
         unsafe_allow_html=True,
     )
@@ -1061,8 +1061,8 @@ def _render_sources(
 
 def _kv(key: str, value: str) -> str:
     return (
-        f'<div class="pka-kv"><span class="pka-kv-key">{html.escape(key)}</span>'
-        f'<span class="pka-kv-val">{html.escape(value)}</span></div>'
+        f'<div class="doctrace-kv"><span class="doctrace-kv-key">{html.escape(key)}</span>'
+        f'<span class="doctrace-kv-val">{html.escape(value)}</span></div>'
     )
 
 
@@ -1078,17 +1078,17 @@ def _render_provider_editor(
     chip = ""
     if locality:
         local = provider["is_local"]
-        cls = "pka-chip-local" if local else "pka-chip-cloud"
-        chip = f'<span class="pka-chip {cls}">{"Local" if local else "Cloud"}</span>'
+        cls = "doctrace-chip-local" if local else "doctrace-chip-cloud"
+        chip = f'<span class="doctrace-chip {cls}">{"Local" if local else "Cloud"}</span>'
     st.markdown(
-        f'<div class="pka-field-label">{html.escape(label)}{chip}</div>',
+        f'<div class="doctrace-field-label">{html.escape(label)}{chip}</div>',
         unsafe_allow_html=True,
     )
     st.markdown(_kv("model", provider["model"]), unsafe_allow_html=True)
     st.markdown(_kv("base URL", provider["base_url"]), unsafe_allow_html=True)
     st.markdown(_kv("key", provider["masked_key"]), unsafe_allow_html=True)
     st.markdown(
-        '<div class="pka-note">Set in <code>.env</code>; restart the app to change '
+        '<div class="doctrace-note">Set in <code>.env</code>; restart the app to change '
         "it.</div>",
         unsafe_allow_html=True,
     )
@@ -1099,20 +1099,20 @@ def _render_probe_result(result: dict) -> None:
         check = result.get(key) or {}
         if check.get("ok"):
             st.markdown(
-                f'<div class="pka-probe-ok">✓ {label} reachable</div>',
+                f'<div class="doctrace-probe-ok">✓ {label} reachable</div>',
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                f'<div class="pka-probe-bad">✕ {label} unreachable</div>'
-                f'<div class="pka-probe-detail" dir="auto">'
+                f'<div class="doctrace-probe-bad">✕ {label} unreachable</div>'
+                f'<div class="doctrace-probe-detail" dir="auto">'
                 f'{html.escape(str(check.get("detail") or ""))}</div>',
                 unsafe_allow_html=True,
             )
 
 
 def _render_models(client: ApiClient) -> None:
-    st.markdown('<div class="pka-card"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-card"></div>', unsafe_allow_html=True)
     _pane_header("Models", collapse=("models_open", "»"), control_side="left")
 
     try:
@@ -1134,7 +1134,7 @@ def _render_models(client: ApiClient) -> None:
 
     if config["embedding"]["is_local"]:
         st.markdown(
-            '<div class="pka-note">Documents are embedded on this machine and never '
+            '<div class="doctrace-note">Documents are embedded on this machine and never '
             "leave it. A hosted embedding provider instead — faster for large "
             "libraries, but document text is sent to that provider — can be set "
             "above, or via <code>EMBEDDING_BASE_URL</code>/<code>EMBEDDING_API_KEY</code>"
@@ -1144,7 +1144,7 @@ def _render_models(client: ApiClient) -> None:
         )
     else:
         st.markdown(
-            '<div class="pka-note">Document text is sent to this hosted provider to be '
+            '<div class="doctrace-note">Document text is sent to this hosted provider to be '
             "embedded. Switch back to a local server above, or set "
             "<code>EMBEDDING_BASE_URL</code> in <code>.env</code> to make that the "
             "default across restarts.</div>",
@@ -1155,7 +1155,7 @@ def _render_models(client: ApiClient) -> None:
     probing = st.empty()
     if st.button("Test connection", use_container_width=True):
         probing.markdown(
-            '<div class="pka-busy">Contacting providers…</div>',
+            '<div class="doctrace-busy">Contacting providers…</div>',
             unsafe_allow_html=True,
         )
         try:
@@ -1173,7 +1173,7 @@ def _render_models(client: ApiClient) -> None:
         _render_probe_result(st.session_state["probe"])
 
     st.markdown(
-        '<div class="pka-note">Changing the embedding model above is refused (HTTP '
+        '<div class="doctrace-note">Changing the embedding model above is refused (HTTP '
         "409) while sources are indexed under a different one — reset the knowledge "
         "base and re-add your sources afterwards if you want to switch anyway."
         "</div>",
@@ -1188,11 +1188,11 @@ def _render_citation(number: int, source: dict) -> None:
     with st.popover(f"[{number}] {source['filename']}"):
         excerpt = html.escape(source["excerpt"]).replace("\n", "<br>")
         st.markdown(
-            f'<div class="pka-cite-name" dir="auto">'
+            f'<div class="doctrace-cite-name" dir="auto">'
             f'{html.escape(source["filename"])}</div>'
-            f'<div class="pka-cite-meta">{html.escape(source["file_type"].upper())}'
+            f'<div class="doctrace-cite-meta">{html.escape(source["file_type"].upper())}'
             f" · excerpt {html.escape(str(source['chunk_id']))}</div>"
-            f'<div class="pka-cite-body" dir="auto">{excerpt}</div>',
+            f'<div class="doctrace-cite-body" dir="auto">{excerpt}</div>',
             unsafe_allow_html=True,
         )
 
@@ -1206,7 +1206,7 @@ def _answer_html(answer: str) -> str:
     rendered = []
     for part in _CITATION_SPLIT.split(answer):
         if _CITATION_SPLIT.fullmatch(part):
-            rendered.append(f'<span class="pka-ref">{html.escape(part[1:-1])}</span>')
+            rendered.append(f'<span class="doctrace-ref">{html.escape(part[1:-1])}</span>')
         else:
             rendered.append(html.escape(part).replace("\n", "<br>"))
     return "".join(rendered)
@@ -1214,7 +1214,7 @@ def _answer_html(answer: str) -> str:
 
 def _render_exchange(question: str, reply: dict | None, error: str | None = None) -> None:
     st.markdown(
-        f'<div class="pka-asked" dir="auto">{html.escape(question)}</div>',
+        f'<div class="doctrace-asked" dir="auto">{html.escape(question)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -1228,16 +1228,16 @@ def _render_exchange(question: str, reply: dict | None, error: str | None = None
     assert reply is not None
     if reply["is_refusal"]:
         st.markdown(
-            '<div class="pka-declined">'
-            '<div class="pka-declined-label">Not in your sources</div>'
-            f'<div class="pka-declined-text" dir="auto">'
+            '<div class="doctrace-declined">'
+            '<div class="doctrace-declined-label">Not in your sources</div>'
+            f'<div class="doctrace-declined-text" dir="auto">'
             f'{html.escape(reply["answer"])}</div></div>',
             unsafe_allow_html=True,
         )
         return
 
     st.markdown(
-        f'<div class="pka-reply" dir="auto">{_answer_html(reply["answer"])}</div>',
+        f'<div class="doctrace-reply" dir="auto">{_answer_html(reply["answer"])}</div>',
         unsafe_allow_html=True,
     )
 
@@ -1245,7 +1245,7 @@ def _render_exchange(question: str, reply: dict | None, error: str | None = None
     if not sources:
         return
 
-    st.markdown('<div class="pka-evidence">Sources</div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-evidence">Sources</div>', unsafe_allow_html=True)
     for row_start in range(0, len(sources), 3):
         row = sources[row_start : row_start + 3]
         for column, offset in zip(st.columns(3), range(len(row))):
@@ -1295,14 +1295,14 @@ def _inject_composer_behavior() -> None:
                         'button[data-testid*="FormSubmit"], ' +
                         'button[kind="primary"], button[type="submit"]'
                     );
-                    if (send && !send.dataset.pkaBound) {
-                        send.dataset.pkaBound = "1";
+                    if (send && !send.dataset.doctraceBound) {
+                        send.dataset.doctraceBound = "1";
                         send.addEventListener("click", function () {
                             resetAfterSubmit(area);
                         });
                     }
-                    if (area.dataset.pkaBound) return;
-                    area.dataset.pkaBound = "1";
+                    if (area.dataset.doctraceBound) return;
+                    area.dataset.doctraceBound = "1";
                     autoGrow(area);
                     area.addEventListener("input", function () { autoGrow(area); });
                     area.addEventListener("keydown", function (event) {
@@ -1335,13 +1335,13 @@ def _inject_composer_behavior() -> None:
 def _render_chat(
     client: ApiClient, documents: list[dict], fetch_error: str | None
 ) -> None:
-    st.markdown('<div class="pka-card"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-card"></div>', unsafe_allow_html=True)
 
     # Everything above the composer — title, hero/history — lives in its own container
-    # so only *this* region scrolls (`.pka-history` below marks it for the CSS); the
+    # so only *this* region scrolls (`.doctrace-history` below marks it for the CSS); the
     # composer, rendered as a sibling after this `with` block ends, is never inside it.
     with st.container():
-        st.markdown('<div class="pka-history"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="doctrace-history"></div>', unsafe_allow_html=True)
         _pane_header("Chat", note="grounded in your sources")
 
         # In-memory only (per ADR-1's UI-is-a-thin-client boundary): a plain list in
@@ -1362,39 +1362,39 @@ def _render_chat(
         if exchanges:
             for question_asked, reply, error in exchanges:
                 _render_exchange(question_asked, reply, error)
-            st.markdown('<div class="pka-grow"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="doctrace-grow"></div>', unsafe_allow_html=True)
         else:
             if fetch_error:
                 body = (
-                    '<div class="pka-hero-title">The service is unreachable</div>'
-                    '<div class="pka-hero-sub">Start the API, then reload this page.</div>'
+                    '<div class="doctrace-hero-title">The service is unreachable</div>'
+                    '<div class="doctrace-hero-sub">Start the API, then reload this page.</div>'
                 )
             elif not documents:
                 body = (
-                    '<div class="pka-hero-title">Add a source to begin</div>'
-                    '<div class="pka-hero-sub">Answers come only from your own documents, '
+                    '<div class="doctrace-hero-title">Add a source to begin</div>'
+                    '<div class="doctrace-hero-sub">Answers come only from your own documents, '
                     "with the supporting passage attached.</div>"
                 )
             else:
                 count = len(documents)
                 body = (
-                    '<div class="pka-hero-title">Ask your sources</div>'
-                    f'<div class="pka-hero-sub">{count} '
+                    '<div class="doctrace-hero-title">Ask your sources</div>'
+                    f'<div class="doctrace-hero-sub">{count} '
                     f'{"source" if count == 1 else "sources"} ready — in English, '
                     "Persian, or both.</div>"
                 )
             st.markdown(
-                f'<div class="pka-hero"><div class="pka-hero-mark"></div>{body}</div>',
+                f'<div class="doctrace-hero"><div class="doctrace-hero-mark"></div>{body}</div>',
                 unsafe_allow_html=True,
             )
-            st.markdown('<div class="pka-grow"></div>', unsafe_allow_html=True)
+            st.markdown('<div class="doctrace-grow"></div>', unsafe_allow_html=True)
 
     # The composer is always typeable — a half-written question survives adding the
     # first source. Whether it can be answered is decided on submit, not by disabling.
     pending = st.empty()
     # Marks this column for the chat-composer-only CSS below (the capsule, the circular
     # send button) so it never bleeds into the Models panel's own, ordinary forms.
-    st.markdown('<div class="pka-composer"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="doctrace-composer"></div>', unsafe_allow_html=True)
     with st.form("ask", clear_on_submit=True):
         field, send = st.columns([12, 1], vertical_alignment="bottom")
         with field:
@@ -1433,11 +1433,11 @@ def _render_chat(
     # well before the blocking `submit_query` call below returns.
     with pending.container():
         st.markdown(
-            f'<div class="pka-asked" dir="auto">{html.escape(question)}</div>',
+            f'<div class="doctrace-asked" dir="auto">{html.escape(question)}</div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="pka-busy">Searching your sources…</div>', unsafe_allow_html=True
+            '<div class="doctrace-busy">Searching your sources…</div>', unsafe_allow_html=True
         )
     st.session_state["chat_error"] = None
     try:
@@ -1453,7 +1453,7 @@ def _render_chat(
 
 def main() -> None:
     st.set_page_config(
-        page_title="Private Knowledge Assistant",
+        page_title="DocTrace",
         page_icon="◈",
         layout="wide",
         initial_sidebar_state="collapsed",
@@ -1467,9 +1467,9 @@ def main() -> None:
     documents, fetch_error = _load_documents(client)
 
     st.markdown(
-        '<div class="pka-brand"><span class="pka-brand-dot"></span>'
-        '<span class="pka-brand-name">Private Knowledge Assistant</span>'
-        '<span class="pka-brand-sub">Local-first · grounded answers with citations'
+        '<div class="doctrace-brand"><span class="doctrace-brand-dot"></span>'
+        '<span class="doctrace-brand-name">DocTrace</span>'
+        '<span class="doctrace-brand-sub">Local-first · grounded answers with citations'
         "</span></div>",
         unsafe_allow_html=True,
     )
