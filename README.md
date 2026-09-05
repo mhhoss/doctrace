@@ -2,6 +2,8 @@
 
 *Private document intelligence with page-level citations.*
 
+![DocTrace UI](docs/images/ui-main.png)
+
 A local-first RAG application: upload private PDF/DOCX/TXT documents, index them into a
 persistent local vector store, and ask questions answered **only** from those documents,
 with citations.
