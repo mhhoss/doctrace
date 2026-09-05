@@ -32,6 +32,7 @@ from fastapi import (
     File,
     HTTPException,
     Request,
+    Response,
     UploadFile,
     status,
 )
@@ -50,7 +51,9 @@ from app.documents.loader import (
     compute_document_id,
     detect_file_type,
 )
+from app.documents.parser import extract_pages
 from app.extraction import engine as extraction_engine
+from app.extraction.matching import locate_quote
 from app.extraction.models import ExtractionOutcome as DomainExtractionOutcome
 from app.extraction.models import SectionOutcome as DomainSectionOutcome
 from app.extraction.store import ExtractionStore
@@ -62,6 +65,7 @@ from app.rag.indexer import IngestOutcome as DomainIngestOutcome
 from app.rag.jobs import IngestionJob as DomainIngestionJob
 from app.rag.jobs import JobStore, run_ingestion_job
 from app.schemas import api as schemas
+from app.storage.files import FileStore
 from app.storage.vector_store import DocumentSummary as DomainDocumentSummary
 from app.storage.vector_store import VectorStore
 
@@ -116,6 +120,10 @@ def _get_job_store(request: Request) -> JobStore:
 
 def _get_extraction_store(request: Request) -> ExtractionStore:
     return request.app.state.extraction_store
+
+
+def _get_file_store(request: Request) -> FileStore:
+    return request.app.state.file_store
 
 
 def _get_embed_model(request: Request) -> BaseEmbedding:
@@ -250,6 +258,7 @@ async def ingest_documents(
     store: VectorStore = Depends(_get_vector_store),
     embed_model: BaseEmbedding = Depends(_get_embed_model),
     job_store: JobStore = Depends(_get_job_store),
+    file_store: FileStore = Depends(_get_file_store),
 ) -> schemas.IngestionJobResponse:
     """Start a background ingestion job for one or more files (R-01, R-09, ADR-17).
 
@@ -270,6 +279,18 @@ async def ingest_documents(
             detail=f"File(s) exceed the {settings.max_upload_mb}MB limit: "
             f"{', '.join(oversized)}.",
         )
+    # Best-effort (ADR-29): an undetectable file type just isn't persisted here — the
+    # existing ingestion path still reports it as a normal failed outcome.
+    for filename, content in loaded:
+        try:
+            file_store.save(
+                document_id=compute_document_id(content),
+                filename=filename,
+                file_type=detect_file_type(filename),
+                content=content,
+            )
+        except UnsupportedFileTypeError:
+            pass
     job = job_store.create(filenames=[name for name, _ in loaded])
     background_tasks.add_task(
         run_ingestion_job,
@@ -345,11 +366,19 @@ def list_documents(
 def delete_document(
     document_id: str,
     store: VectorStore = Depends(_get_vector_store),
+    extraction_store: ExtractionStore = Depends(_get_extraction_store),
+    file_store: FileStore = Depends(_get_file_store),
 ) -> schemas.DeleteDocumentResponse:
-    """Delete one document by id (R-07). Idempotent: absence is not an error."""
+    """Delete one document by id (R-07) — chunks, extraction result, and stored
+    original bytes together, so nothing outlives the listing that named it (ADR-29
+    added the latter two stores after this route's original vector-store-only cleanup).
+    Idempotent: absence is not an error.
+    """
     existed = store.document_exists(document_id)
     if existed:
         store.delete_document(document_id)
+    extraction_store.delete(document_id)
+    file_store.delete(document_id)
     return schemas.DeleteDocumentResponse(document_id=document_id, deleted=existed)
 
 
@@ -376,6 +405,7 @@ async def extract_document(
     settings: Settings = Depends(_get_settings),
     llm: LLM = Depends(_get_llm),
     extraction_store: ExtractionStore = Depends(_get_extraction_store),
+    file_store: FileStore = Depends(_get_file_store),
 ) -> schemas.ExtractionResponse:
     """Extract a page-cited requirement register from one document (ADR-25).
 
@@ -400,8 +430,12 @@ async def extract_document(
     except UnsupportedFileTypeError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
+    document_id = compute_document_id(content)
+    file_store.save(
+        document_id=document_id, filename=filename, file_type=file_type, content=content
+    )
     outcome = extraction_engine.extract_document(
-        document_id=compute_document_id(content),
+        document_id=document_id,
         filename=filename,
         file_type=file_type,
         content=content,
@@ -416,10 +450,9 @@ def get_extraction(
     document_id: str,
     extraction_store: ExtractionStore = Depends(_get_extraction_store),
 ) -> schemas.ExtractionResponse:
-    """Retrieve a previously computed extraction result (ADR-25).
+    """Retrieve a previously computed extraction result (ADR-25, persisted since ADR-29).
 
-    404 if this document has never been extracted in this process — the store is
-    in-memory only, the same lifecycle as `JobStore` (see `extraction/store.py`).
+    404 if this document has never been extracted.
     """
     outcome = extraction_store.get(document_id)
     if outcome is None:
@@ -428,6 +461,60 @@ def get_extraction(
             detail=f"No extraction result found for document {document_id!r}.",
         )
     return _to_schema_extraction(outcome)
+
+
+_FILE_TYPE_MEDIA_TYPE = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "txt": "text/plain; charset=utf-8",
+}
+
+
+@router.get("/documents/{document_id}/file")
+def get_document_file(
+    document_id: str, file_store: FileStore = Depends(_get_file_store)
+) -> Response:
+    """Serve a previously uploaded file's original bytes (ADR-29)."""
+    stored = file_store.get(document_id)
+    if stored is None:
+        raise HTTPException(
+            status_code=404, detail=f"No stored file for document {document_id!r}."
+        )
+    media_type = _FILE_TYPE_MEDIA_TYPE.get(stored.file_type, "application/octet-stream")
+    return Response(content=stored.content, media_type=media_type)
+
+
+@router.post(
+    "/documents/{document_id}/locate-quote",
+    response_model=schemas.LocateQuoteResponse,
+)
+def locate_citation_quote(
+    document_id: str,
+    body: schemas.LocateQuoteRequest,
+    file_store: FileStore = Depends(_get_file_store),
+) -> schemas.LocateQuoteResponse:
+    """Find which page(s) a chat citation's excerpt came from, on demand.
+
+    Chat citations (`rag/generator.Citation`) carry no page number — only the
+    extraction pipeline's chunks do (ADR-24) — so this reuses the same page list and
+    quote-matching (`extraction.matching.locate_quote`) against the stored original
+    file, rather than threading page numbers through indexing/retrieval/generation.
+    404 if the original file was never stored (deleted, or ingested before ADR-29).
+    """
+    stored = file_store.get(document_id)
+    if stored is None:
+        raise HTTPException(
+            status_code=404, detail=f"No stored file for document {document_id!r}."
+        )
+    if stored.file_type != "pdf":
+        return schemas.LocateQuoteResponse(located=False)
+    pages = extract_pages(file_type=stored.file_type, content=stored.content)
+    match = locate_quote(pages, body.quote)
+    if match is None:
+        return schemas.LocateQuoteResponse(located=False)
+    return schemas.LocateQuoteResponse(
+        page_start=match[0], page_end=match[1], located=True
+    )
 
 
 @router.post(

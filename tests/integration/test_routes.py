@@ -25,6 +25,8 @@ from app.extraction import llm_calls
 from app.extraction.models import ExtractedItemLLM, SectionExtractionResult
 from app.extraction.store import ExtractionStore
 from app.rag.jobs import JobStore
+from app.storage.db import Database
+from app.storage.files import FileStore
 from app.storage.vector_store import VectorStore
 from tests.conftest import (
     StubEmbedding,
@@ -55,19 +57,23 @@ def _settings(**overrides: object) -> Settings:
 
 
 @pytest.fixture
-def app(store: VectorStore, embed_model: StubEmbedding, llm: StubLLM) -> FastAPI:
+def app(
+    store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
+) -> FastAPI:
     application = FastAPI()
     application.include_router(routes.router)
     application.dependency_overrides[routes._get_settings] = lambda: _settings()
     application.dependency_overrides[routes._get_vector_store] = lambda: store
     application.dependency_overrides[routes._get_embed_model] = lambda: embed_model
     application.dependency_overrides[routes._get_llm] = lambda: llm
-    job_store = JobStore()
+    job_store = JobStore(db)
     application.dependency_overrides[routes._get_job_store] = lambda: job_store
-    extraction_store = ExtractionStore()
+    extraction_store = ExtractionStore(db)
     application.dependency_overrides[routes._get_extraction_store] = (
         lambda: extraction_store
     )
+    file_store = FileStore(db)
+    application.dependency_overrides[routes._get_file_store] = lambda: file_store
     return application
 
 
@@ -114,7 +120,7 @@ class TestIngestDocuments:
         assert body["files"][0]["status"] == "queued"
 
     def test_a_file_over_the_configured_limit_is_rejected_with_413(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
     ) -> None:
         app = FastAPI()
         app.include_router(routes.router)
@@ -124,7 +130,8 @@ class TestIngestDocuments:
         app.dependency_overrides[routes._get_vector_store] = lambda: store
         app.dependency_overrides[routes._get_embed_model] = lambda: embed_model
         app.dependency_overrides[routes._get_llm] = lambda: llm
-        app.dependency_overrides[routes._get_job_store] = lambda: JobStore()
+        app.dependency_overrides[routes._get_job_store] = lambda: JobStore(db)
+        app.dependency_overrides[routes._get_file_store] = lambda: FileStore(db)
 
         oversized = b"x" * (2 * 1024 * 1024)
         response = TestClient(app).post(
@@ -301,6 +308,108 @@ class TestDeleteDocument:
 
         assert response.status_code == 200
         assert response.json() == {"document_id": "does-not-exist", "deleted": False}
+
+    def test_also_removes_the_stored_file_and_extraction_result(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ADR-31: deletion predates ADR-29's persistence layer and originally only
+        cleared vector-store chunks — a deleted document must not still be fetchable
+        via the file or extraction endpoints."""
+        monkeypatch.setattr(
+            llm_calls,
+            "extract_section_items",
+            lambda llm, **kw: SectionExtractionResult(items=[]),
+        )
+        content = build_pdf([ENGLISH_TEXT])
+        job = upload_and_finish(client, [("report.pdf", content)])
+        document_id = job["files"][0]["document_id"]
+        client.post(
+            "/extract", files={"file": ("report.pdf", content, "application/pdf")}
+        )
+
+        client.delete(f"/documents/{document_id}")
+
+        assert client.get(f"/documents/{document_id}/file").status_code == 404
+        assert client.get(f"/extract/{document_id}").status_code == 404
+
+
+class TestGetDocumentFile:
+    """`GET /documents/{document_id}/file` (ADR-29): serves the original uploaded
+    bytes back, e.g. for the UI's PDF viewer."""
+
+    def test_returns_the_original_bytes_and_media_type(self, client: TestClient) -> None:
+        content = build_pdf([ENGLISH_TEXT])
+        job = upload_and_finish(client, [("report.pdf", content)])
+        document_id = job["files"][0]["document_id"]
+
+        response = client.get(f"/documents/{document_id}/file")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+        assert response.content == content
+
+    def test_unknown_document_id_is_a_404(self, client: TestClient) -> None:
+        response = client.get("/documents/does-not-exist/file")
+        assert response.status_code == 404
+
+
+class TestLocateQuote:
+    """`POST /documents/{document_id}/locate-quote` (ADR-30): resolves a chat
+    citation's page on demand, reusing extraction's own page-matching."""
+
+    def test_locates_a_quote_on_its_source_page(self, client: TestClient) -> None:
+        content = build_pdf([ENGLISH_TEXT, "A second, unrelated page."])
+        job = upload_and_finish(client, [("report.pdf", content)])
+        document_id = job["files"][0]["document_id"]
+
+        response = client.post(
+            f"/documents/{document_id}/locate-quote",
+            json={"quote": "Kubernetes cluster costs"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["located"] is True
+        assert body["page_start"] == 1
+        assert body["page_end"] == 1
+
+    def test_an_unmatched_quote_is_reported_as_not_located(
+        self, client: TestClient
+    ) -> None:
+        content = build_pdf([ENGLISH_TEXT])
+        job = upload_and_finish(client, [("report.pdf", content)])
+        document_id = job["files"][0]["document_id"]
+
+        response = client.post(
+            f"/documents/{document_id}/locate-quote",
+            json={"quote": "this text never appears anywhere in the document"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "page_start": None,
+            "page_end": None,
+            "located": False,
+        }
+
+    def test_non_pdf_documents_have_no_page_concept(self, client: TestClient) -> None:
+        job = upload_and_finish(
+            client, [("گزارش.docx", build_docx([PERSIAN_TEXT]))]
+        )
+        document_id = job["files"][0]["document_id"]
+
+        response = client.post(
+            f"/documents/{document_id}/locate-quote", json={"quote": PERSIAN_TEXT}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["located"] is False
+
+    def test_unknown_document_id_is_a_404(self, client: TestClient) -> None:
+        response = client.post(
+            "/documents/does-not-exist/locate-quote", json={"quote": "anything"}
+        )
+        assert response.status_code == 404
 
 
 class TestReset:
@@ -577,7 +686,12 @@ class TestApiKeyAuth:
     hard gate on mutating routes when it is set."""
 
     def _app_with_api_key(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, api_key: str
+        self,
+        store: VectorStore,
+        embed_model: StubEmbedding,
+        llm: StubLLM,
+        db: Database,
+        api_key: str,
     ) -> FastAPI:
         application = FastAPI()
         application.include_router(routes.router)
@@ -587,10 +701,11 @@ class TestApiKeyAuth:
         application.dependency_overrides[routes._get_vector_store] = lambda: store
         application.dependency_overrides[routes._get_embed_model] = lambda: embed_model
         application.dependency_overrides[routes._get_llm] = lambda: llm
-        application.dependency_overrides[routes._get_job_store] = lambda: JobStore()
+        application.dependency_overrides[routes._get_job_store] = lambda: JobStore(db)
         application.dependency_overrides[routes._get_extraction_store] = (
-            lambda: ExtractionStore()
+            lambda: ExtractionStore(db)
         )
+        application.dependency_overrides[routes._get_file_store] = lambda: FileStore(db)
         return application
 
     def test_unset_api_key_leaves_mutating_routes_open(self, client: TestClient) -> None:
@@ -600,34 +715,34 @@ class TestApiKeyAuth:
         assert response.status_code == 200
 
     def test_configured_api_key_blocks_reset_without_the_header(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
     ) -> None:
-        app = self._app_with_api_key(store, embed_model, llm, api_key="secret-key")
+        app = self._app_with_api_key(store, embed_model, llm, db, api_key="secret-key")
         response = TestClient(app).post("/reset")
         assert response.status_code == 401
 
     def test_configured_api_key_blocks_a_wrong_header_value(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
     ) -> None:
-        app = self._app_with_api_key(store, embed_model, llm, api_key="secret-key")
+        app = self._app_with_api_key(store, embed_model, llm, db, api_key="secret-key")
         response = TestClient(app).post(
             "/reset", headers={"X-API-Key": "wrong-key"}
         )
         assert response.status_code == 401
 
     def test_configured_api_key_allows_the_matching_header(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
     ) -> None:
-        app = self._app_with_api_key(store, embed_model, llm, api_key="secret-key")
+        app = self._app_with_api_key(store, embed_model, llm, db, api_key="secret-key")
         response = TestClient(app).post(
             "/reset", headers={"X-API-Key": "secret-key"}
         )
         assert response.status_code == 200
 
     def test_configured_api_key_does_not_block_read_only_routes(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
     ) -> None:
-        app = self._app_with_api_key(store, embed_model, llm, api_key="secret-key")
+        app = self._app_with_api_key(store, embed_model, llm, db, api_key="secret-key")
         response = TestClient(app).get("/documents")
         assert response.status_code == 200
 
@@ -729,7 +844,7 @@ class TestExtractDocument:
         assert response.status_code == 404
 
     def test_extract_requires_the_api_key_when_configured(
-        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM
+        self, store: VectorStore, embed_model: StubEmbedding, llm: StubLLM, db: Database
     ) -> None:
         app = FastAPI()
         app.include_router(routes.router)
@@ -739,8 +854,9 @@ class TestExtractDocument:
         app.dependency_overrides[routes._get_vector_store] = lambda: store
         app.dependency_overrides[routes._get_embed_model] = lambda: embed_model
         app.dependency_overrides[routes._get_llm] = lambda: llm
-        app.dependency_overrides[routes._get_job_store] = lambda: JobStore()
-        app.dependency_overrides[routes._get_extraction_store] = lambda: ExtractionStore()
+        app.dependency_overrides[routes._get_job_store] = lambda: JobStore(db)
+        app.dependency_overrides[routes._get_extraction_store] = lambda: ExtractionStore(db)
+        app.dependency_overrides[routes._get_file_store] = lambda: FileStore(db)
 
         response = TestClient(app).post(
             "/extract", files={"file": ("report.txt", b"some text", "text/plain")}

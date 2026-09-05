@@ -265,7 +265,6 @@ class TestVerification:
         )
 
         assert outcome.items[0].verification_status == VerificationStatus.NOT_RUN
-        assert outcome.items[0].confidence == pytest.approx(outcome.items[0].confidence)
 
 
 class TestDeduplication:

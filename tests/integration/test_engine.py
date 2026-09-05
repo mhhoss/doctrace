@@ -187,17 +187,6 @@ class TestIngestFilePathologicalText:
         assert outcome.error and "corrupted" in outcome.error
         assert store.count() == 0
 
-    def test_severe_failure_never_reaches_the_store(
-        self, store: VectorStore, embed_model: StubEmbedding
-    ) -> None:
-        do_ingest(
-            store,
-            embed_model,
-            "broken.pdf",
-            build_pdf([SEVERELY_GARBLED_PDF_TEXT], page_width=GARBLED_PDF_PAGE_WIDTH),
-        )
-        assert store.list_documents() == []
-
     def test_a_normal_pdf_still_indexes_after_the_severely_broken_one_fails(
         self, store: VectorStore, embed_model: StubEmbedding
     ) -> None:

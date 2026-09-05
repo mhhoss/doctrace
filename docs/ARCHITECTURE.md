@@ -743,19 +743,75 @@ explicitly avoids.
 
 The frontend owns exactly one new architectural decision worth recording: the PDF
 viewer (`web/src/components/PdfViewer.tsx`, using `pdfjs-dist`) renders **entirely
-client-side**, from the bytes already in the browser from the file the user just
-selected — the backend does not persist or serve original files (a real, disclosed
-gap; storing them is a separate, later, planned change), so there is no server
-round-trip for a preview and, for now, no way to reopen a past extraction's source
-after a page reload. `web/README.md` documents this and two other explicit,
-by-design scope limits (no in-canvas highlight overlay, "Ask" searching the whole
-knowledge base rather than one document, matching what `POST /query` actually does
-today) rather than letting the UI imply a capability the API doesn't have.
+client-side**, from bytes already in the browser (a just-uploaded file) or, via
+`GET /documents/{document_id}/file` (ADR-29), from the backend's persisted copy —
+either way there is no server round-trip needed beyond that one fetch. `PdfViewer`
+takes an optional `url` alongside `bytes` for this; `CitationViewer.tsx` (ADR-30)
+and the Requirements pane's source preview both pass `url` once client-side bytes
+aren't available, closing the "reopen a past extraction after a page reload" gap
+end to end. `web/README.md` documents the remaining explicit, by-design scope
+limits (no in-canvas highlight overlay, "Ask" searching the whole knowledge base
+rather than one document, matching what `POST /query` actually does today) rather
+than letting the UI imply a capability it doesn't have yet.
 
 Streamlit (`streamlit_app.py`) is **not removed yet** — it remains fully functional
 (its Models panel already went read-only under ADR-26) as a working fallback until
 the React UI reaches feature parity, at which point removing it is a separate,
 later change, not bundled into this one.
+
+**ADR-29 — Ingestion jobs, extraction results, and original file bytes are
+persisted in one SQLite database (`app/storage/db.py`), under `Settings.data_dir`,
+instead of living only in process memory.** Before this, `JobStore` and
+`ExtractionStore` were plain in-memory dicts and original file bytes were never
+kept at all (the gap ADR-28 disclosed) — a server restart silently lost any
+in-flight or completed job, any extraction result, and closed the "reopen a PDF
+after a page reload" gap the frontend could not otherwise fill. One `Database`
+connection is opened once in `app/main.py`'s lifespan and handed to `JobStore`,
+`ExtractionStore`, and the new `FileStore`; each owns one table and talks to it
+only through `Database.execute`/`query_one`/`query_all`, never through a shared
+ORM layer — the schema is three small, independent tables, not worth an ORM's
+overhead. `check_same_thread=False` plus one process-wide `threading.Lock` around
+every read and write gives single-writer serialization, matching SQLite's own
+concurrency model; a single-user local tool never needs more.
+
+Original files are keyed by `document_id` (ADR-3's content-hash identity, reused
+rather than inventing a second one) so a file uploaded through both `/documents`
+and `/extract` naturally dedupes to one stored copy; `GET
+/documents/{document_id}/file` serves the bytes back for the UI's PDF viewer.
+`IngestionJob`'s timestamps moved from `time.monotonic()` to `time.time()` —
+monotonic time is process-relative and meaningless once read back after a
+restart, which persistence now requires. `JobStore.sweep_interrupted()` runs once
+at startup: any job left `started_at`-set-but-`finished_at`-unset can only mean
+the prior process died mid-run, since no thread in the new process is running it;
+its still-in-flight files are marked `failed` with an explanatory message and the
+job is closed out. It does not attempt automatic resume — the original upload
+request's bytes are gone from memory, and silently re-embedding arbitrary content
+after an unattended crash is a bigger risk than asking the user to re-upload,
+which is already cheap (ADR-3's dedup skips whatever did finish).
+
+**ADR-30 — `POST /documents/{document_id}/locate-quote` resolves a chat citation's page
+on demand instead of adding page numbers to chunk metadata.** `rag/generator.Citation`
+has no page number — only extraction's chunks carry one (ADR-24) — and the RAG chunking
+path (character-window, not the extraction pipeline's page-preserving sectionizer) has
+no page identity to attach at index time. Rather than threading a new required metadata
+field through `documents/processor.py` → `rag/indexer.py` → `rag/retriever.py` →
+`rag/generator.py` (a real change to the chunk metadata contract in the Data flow
+section above, for a UI-only need), this route reuses `documents.parser.extract_pages`
+and `extraction.matching.locate_quote` — already-correct, already-tested page-matching —
+against the citation's stored original file (`FileStore`, ADR-29) at click time. Non-PDF
+files and an unlocatable excerpt both report `located=False` rather than erroring: same
+"no real page concept" fallback the Requirements view already shows for DOCX/TXT.
+
+**ADR-31 — Deleting a document also removes its `ExtractionStore` and `FileStore`
+rows, not just its vector-store chunks.** The original `DELETE /documents/{document_id}`
+predates ADR-29's persistence layer and only ever called `store.delete_document`; once
+extraction results and original file bytes became durable, a deleted document's
+extraction register and stored PDF silently outlived its listing — invisible in
+`GET /documents` but still fetchable via `GET /extract/{document_id}` and
+`GET /documents/{document_id}/file`. Both new deletes are unconditional and idempotent
+(`DELETE ... WHERE document_id = ?` matches zero rows harmlessly), matching
+`VectorStore.delete_document`'s existing idempotency rather than first checking
+existence.
 
 ## Performance
 

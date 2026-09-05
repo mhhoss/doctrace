@@ -263,6 +263,25 @@ class ErrorResponse(BaseModel):
     detail: str = Field(min_length=1)
 
 
+class LocateQuoteRequest(BaseModel):
+    """A citation excerpt to find within its source document's pages."""
+
+    quote: str = Field(min_length=1)
+
+
+class LocateQuoteResponse(BaseModel):
+    """Where `quote` was found, reusing the extraction pipeline's own page-matching
+    (ADR-24's page list + `extraction.matching.locate_quote`) — no chunk metadata
+    changed to support this, since a chat citation's chunk carries no page number.
+    `located` is false whenever the source has no real page concept (non-PDF) or the
+    excerpt could not be matched.
+    """
+
+    page_start: int | None = None
+    page_end: int | None = None
+    located: bool
+
+
 class HealthCheck(BaseModel):
     """One dependency's status (ADR-26): a missing binary, a missing pinned model
     file, or an unwritable storage path each fail loudly here instead of surfacing

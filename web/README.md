@@ -36,17 +36,15 @@ independently in the meantime).
   tab state, not a multi-route SPA, since there is nothing here that needs a URL of
   its own yet.
 - `src/components/PdfViewer.tsx` — renders a PDF **entirely client-side**, from bytes
-  already in the browser (the file the user just uploaded). The backend does not store
-  or serve original files, so there is no server round-trip and no way (yet) to reopen
-  a past extraction's source after a page reload — see this component's own docstring
-  and ADR-28.
+  already in the browser (the file the user just uploaded), with no server round-trip
+  for a same-session preview — see this component's own docstring and ADR-28. The
+  backend also persists and serves original files (ADR-29, `GET
+  /documents/{document_id}/file`); `PdfViewer` falls back to fetching from that URL
+  whenever client-side bytes aren't available (a page reload, or a chat citation via
+  `CitationViewer.tsx`, ADR-30), so a past extraction's source survives a reload too.
 
 ## Known scope limits (by design, not oversight)
 
-- **Session-only source preview.** Re-opening a document after a reload loses its PDF
-  preview (extraction *results*, from the API, are not affected — only the client-side
-  file bytes are). Fixed by the backend persisting original files, a separate,
-  planned, later change.
 - **No highlight overlay on the PDF page itself** — clicking a requirement jumps the
   viewer to its page and shows the supporting quote in a side panel, rather than
   drawing a highlight box over the exact text on the canvas. A real improvement, left

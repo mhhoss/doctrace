@@ -19,6 +19,7 @@ from llama_index.core.base.llms.types import ChatMessage, ChatResponse, MessageR
 from llama_index.core.llms import CustomLLM, LLMMetadata
 from pydantic import Field
 
+from app.storage.db import Database
 from app.storage.vector_store import VectorStore
 
 STUB_FINGERPRINT = "stub-embedding-v1"
@@ -128,6 +129,11 @@ def store(chroma_path: Path) -> VectorStore:
         collection_name="test_kb",
         embedding_fingerprint=STUB_FINGERPRINT,
     )
+
+
+@pytest.fixture
+def db(tmp_path: Path) -> Database:
+    return Database(tmp_path / "test.db")
 
 
 @pytest.fixture

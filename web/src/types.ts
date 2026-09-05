@@ -84,13 +84,16 @@ export interface AnswerResponse {
 
 // Local-only: a document as this UI tracks it. The backend has no single "document"
 // concept spanning both ingestion (Chroma) and extraction (ExtractionStore) — this UI
-// is what ties one uploaded file to both, and to the in-browser bytes the PDF viewer
-// reads from (the API stores nothing it could serve back for a preview).
+// is what ties one uploaded file to both. `bytes` is only present for a file uploaded
+// in this browser session (avoids re-fetching what's already in memory); once
+// `ingestDocumentId` is known, the PDF viewer can always fall back to
+// `GET /documents/{id}/file` (ADR-29) instead — which is what makes a page reload
+// able to restore the list from the backend rather than losing it.
 export interface LocalDocument {
   localId: string
   filename: string
   fileType: 'pdf' | 'docx' | 'txt' | 'other'
-  bytes: ArrayBuffer
+  bytes?: ArrayBuffer
   ingestDocumentId: string | null
   ingestStatus: 'idle' | 'uploading' | 'indexed' | 'failed'
   extraction: ExtractionResponse | null

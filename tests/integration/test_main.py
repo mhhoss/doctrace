@@ -36,6 +36,9 @@ def _settings(chroma_path: Path, **overrides: object) -> Settings:
         "embedding_model": EMBEDDING_MODEL_A,
         "chunk_size": 200,
         "chunk_overlap": 30,
+        # Real lifespan now opens a SQLite DB here (ADR-29) — must stay under
+        # tmp_path, never the real (gitignored, private) data/ directory.
+        "data_dir": chroma_path.parent / "data",
     }
     kwargs.update(overrides)
     # pydantic-settings' `_env_file` init-only control param is defined in a manual

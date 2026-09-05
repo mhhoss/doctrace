@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api, ApiError } from '../api'
-import type { AnswerResponse } from '../types'
+import { IconSend, IconSparkle } from './icons'
+import type { AnswerResponse, Citation } from '../types'
 
 interface Exchange {
   question: string
@@ -8,7 +9,11 @@ interface Exchange {
   error: string | null
 }
 
-export function AskPanel() {
+interface AskPanelProps {
+  onCiteClick: (citation: Citation) => void
+}
+
+export function AskPanel({ onCiteClick }: AskPanelProps) {
   const [question, setQuestion] = useState('')
   const [exchanges, setExchanges] = useState<Exchange[]>([])
   const [busy, setBusy] = useState(false)
@@ -46,24 +51,47 @@ export function AskPanel() {
         API, which does not yet scope a question to a single document.
       </p>
       <div className="ask-history">
+        {exchanges.length === 0 && (
+          <div className="empty-state large">
+            <IconSparkle />
+            Ask a question to get grounded, cited answers from your knowledge base.
+          </div>
+        )}
         {exchanges.map((exchange, i) => (
           <div className="ask-exchange" key={i}>
-            <div className="ask-question">{exchange.question}</div>
+            <div className="ask-bubble ask-bubble-question">{exchange.question}</div>
             {exchange.answer && (
-              <div className={exchange.answer.is_refusal ? 'ask-refusal' : 'ask-answer'}>
+              <div
+                className={
+                  exchange.answer.is_refusal
+                    ? 'ask-bubble ask-refusal'
+                    : 'ask-bubble ask-answer'
+                }
+              >
                 <p>{exchange.answer.answer}</p>
                 {exchange.answer.sources.length > 0 && (
-                  <ul className="ask-sources">
+                  <div className="ask-sources">
                     {exchange.answer.sources.map((source, j) => (
-                      <li key={j}>{source.filename}</li>
+                      <button
+                        type="button"
+                        key={j}
+                        className="ask-source-chip"
+                        title={`Open source page in ${source.filename}`}
+                        onClick={() => onCiteClick(source)}
+                      >
+                        [{j + 1}] {source.filename}
+                      </button>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
             )}
-            {exchange.error && <div className="ask-error">{exchange.error}</div>}
+            {exchange.error && <div className="ask-bubble ask-error">{exchange.error}</div>}
             {!exchange.answer && !exchange.error && (
-              <div className="ask-pending">Searching…</div>
+              <div className="ask-bubble ask-pending">
+                <span className="ask-spinner" aria-hidden="true" />
+                Searching the knowledge base…
+              </div>
             )}
           </div>
         ))}
@@ -78,11 +106,17 @@ export function AskPanel() {
               void submit()
             }
           }}
-          placeholder="Ask something about your documents…"
+          placeholder="Ask something about your documents… (Enter to send, Shift+Enter for a new line)"
           rows={2}
         />
-        <button type="button" onClick={() => void submit()} disabled={busy || !question.trim()}>
-          Ask
+        <button
+          type="button"
+          className="ask-submit primary"
+          title="Send"
+          onClick={() => void submit()}
+          disabled={busy || !question.trim()}
+        >
+          <IconSend />
         </button>
       </div>
     </div>

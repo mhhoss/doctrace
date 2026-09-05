@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
+import { IconChevronLeft, IconChevronRight } from './icons'
 
 // Vite bundles the worker script itself and hands back a real URL to it — the
 // standard way to wire pdf.js's worker under a bundler, per pdf.js's own docs.
@@ -10,20 +11,21 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 interface PdfViewerProps {
-  bytes: ArrayBuffer
+  /** In-browser bytes (a just-uploaded file) — takes precedence over `url` if both are given. */
+  bytes?: ArrayBuffer
+  /** A `GET /documents/{document_id}/file` URL (ADR-29) — used when `bytes` isn't available. */
+  url?: string
   /** 1-indexed page to jump to when this changes (e.g. a citation was clicked). */
   targetPage: number | null
 }
 
 /**
- * Renders entirely client-side from bytes already in the browser (the file the user
- * just uploaded) — the API stores nothing it could serve back for a preview, so there
- * is no server round-trip here. This is a deliberate scope choice for the first
- * version: reopening a *past* extraction's source across a page reload needs the
- * backend to persist original files, which it does not yet do (a separate, later
- * change) — for now the viewer only works for documents uploaded in this session.
+ * Renders client-side via pdf.js, either from bytes already in the browser (a file
+ * the user just uploaded, no server round-trip needed) or from a `GET
+ * /documents/{document_id}/file` URL — the same viewer backs both the Requirements
+ * view's in-session preview and a chat citation's on-demand lookup.
  */
-export function PdfViewer({ bytes, targetPage }: PdfViewerProps) {
+export function PdfViewer({ bytes, url, targetPage }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const docRef = useRef<PDFDocumentProxy | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
@@ -31,11 +33,30 @@ export function PdfViewer({ bytes, targetPage }: PdfViewerProps) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const renderTaskRef = useRef<RenderTask | null>(null)
 
+  // Reset to page 1 whenever the loaded source itself changes (a new upload, or a
+  // different document's URL) — derived during render (React's documented pattern
+  // for resetting state on a prop change) rather than a synchronous setState inside
+  // the loading effect below.
+  const [prevSource, setPrevSource] = useState({ bytes, url })
+  if (prevSource.bytes !== bytes || prevSource.url !== url) {
+    setPrevSource({ bytes, url })
+    setPageNumber(1)
+  }
+
+  // Jump to a newly-clicked citation's page the same way.
+  const [prevTargetPage, setPrevTargetPage] = useState(targetPage)
+  if (targetPage !== prevTargetPage) {
+    setPrevTargetPage(targetPage)
+    if (targetPage && targetPage >= 1) setPageNumber(targetPage)
+  }
+
   useEffect(() => {
     let cancelled = false
-    // pdf.js detaches/transfers the buffer it's given, so each load needs its own copy
-    // — the caller may still hold `bytes` (e.g. across re-renders).
-    const loadingTask = pdfjsLib.getDocument({ data: bytes.slice(0) })
+    // pdf.js detaches/transfers a `data` buffer it's given, so bytes need their own
+    // copy — the caller may still hold the original (e.g. across re-renders).
+    const loadingTask = bytes
+      ? pdfjsLib.getDocument({ data: bytes.slice(0) })
+      : pdfjsLib.getDocument({ url })
     loadingTask.promise
       .then((doc) => {
         if (cancelled) return
@@ -52,11 +73,7 @@ export function PdfViewer({ bytes, targetPage }: PdfViewerProps) {
       cancelled = true
       loadingTask.destroy()
     }
-  }, [bytes])
-
-  useEffect(() => {
-    if (targetPage && targetPage >= 1) setPageNumber(targetPage)
-  }, [targetPage])
+  }, [bytes, url])
 
   useEffect(() => {
     const doc = docRef.current
@@ -93,20 +110,22 @@ export function PdfViewer({ bytes, targetPage }: PdfViewerProps) {
       <div className="pdf-viewer-toolbar">
         <button
           type="button"
+          title="Previous page"
           disabled={pageNumber <= 1}
           onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
         >
-          Prev
+          <IconChevronLeft />
         </button>
         <span>
           Page {pageNumber} of {pageCount || '…'}
         </span>
         <button
           type="button"
+          title="Next page"
           disabled={pageNumber >= pageCount}
           onClick={() => setPageNumber((n) => Math.min(pageCount, n + 1))}
         >
-          Next
+          <IconChevronRight />
         </button>
       </div>
       <div className="pdf-viewer-canvas-wrap">
